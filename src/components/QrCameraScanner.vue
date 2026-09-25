@@ -14,6 +14,22 @@ const error = ref('')
 const scanning = ref(false)
 let scanner: QrScanner | null = null
 
+// Standardmäßig rechnet qr-scanner den Suchbereich auf 400×400 px herunter – zu wenig für den
+// dichten Zahlungs-QR (~150 Module). Deshalb 90 % des Bildes mit bis zu 1080 px auswerten.
+const MAX_SCAN_PIXELS = 1080
+function calculateScanRegion(video: HTMLVideoElement) {
+  const size = Math.round(Math.min(video.videoWidth, video.videoHeight) * 0.9)
+  const scaled = Math.min(size, MAX_SCAN_PIXELS)
+  return {
+    x: Math.round((video.videoWidth - size) / 2),
+    y: Math.round((video.videoHeight - size) / 2),
+    width: size,
+    height: size,
+    downScaledWidth: scaled,
+    downScaledHeight: scaled,
+  }
+}
+
 async function start() {
   error.value = ''
   if (!videoRef.value) return
@@ -21,7 +37,7 @@ async function start() {
   scanner = new QrScanner(
     videoRef.value,
     (result) => emit('decode', result.data),
-    { highlightScanRegion: true, highlightCodeOutline: true },
+    { highlightScanRegion: true, highlightCodeOutline: true, calculateScanRegion },
   )
 
   try {
@@ -100,6 +116,14 @@ onBeforeUnmount(() => {
   border-left: 0;
   border-top: 0;
   border-radius: 0 0 12px 0;
+}
+
+/* Handy: Kamerabild nimmt nur die Höhe, die neben Kopf, Texten und Knöpfen übrig bleibt */
+@media (hover: none) and (pointer: coarse) {
+  .qr-camera__frame {
+    align-self: center;
+    width: clamp(180px, calc(100dvh - 420px), 100%);
+  }
 }
 
 .qr-camera__preview {

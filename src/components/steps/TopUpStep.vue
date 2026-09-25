@@ -218,6 +218,17 @@ async function confirm() {
   transition: width 0.3s ease;
 }
 
+/* Handy: Tasten wachsen mit der Bildschirmhöhe, damit Numpad und Aufladen-Taste auf einen Screen passen */
+@media (hover: none) and (pointer: coarse) {
+  .numpad {
+    gap: 8px;
+  }
+
+  .numpad__key {
+    height: clamp(44px, 7dvh, 60px);
+  }
+}
+
 /* Modal: Papier aus fm-skin, Ja grün, Abbrechen grau */
 .topup-dialog {
   width: min(360px, calc(100% - 32px));

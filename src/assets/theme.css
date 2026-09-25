@@ -172,3 +172,89 @@ p {
   font-size: 20px;
   font-weight: 500;
 }
+
+/* Modal (natives <dialog>, Papier kommt aus .fm-skin): Ja grün, Abbrechen grau */
+.modal {
+  width: min(360px, calc(100% - 32px));
+}
+
+.modal h3 {
+  margin: 8px 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.modal__actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.modal__yes {
+  border-color: var(--fm-ink);
+  background: var(--fm-green);
+  color: var(--fm-ink);
+}
+
+.modal__yes:hover:not(:disabled) {
+  background: #19a95c;
+  color: var(--fm-ink);
+}
+
+.modal__cancel {
+  border-color: transparent;
+  background: var(--fm-paper-edge);
+  color: var(--fm-ink);
+}
+
+.modal__cancel:hover:not(:disabled) {
+  background: #d6ccb9;
+  color: var(--fm-ink);
+}
+
+/* ---------- Nur Handy (Touch-Geräte) ----------
+ * Kein Zoom per Doppeltipp (Zwei-Finger-Zoom bleibt für Barrierefreiheit erlaubt),
+ * kein Hochziehen der Seite, kein Tipp-Blitz, alles kompakter auf einen Screen.
+ */
+@media (hover: none) and (pointer: coarse) {
+  * {
+    touch-action: manipulation;
+  }
+
+  html {
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  #app {
+    min-height: 100dvh;
+  }
+
+  button {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  .card {
+    padding: 20px 18px;
+  }
+
+  .card h2 {
+    font-size: 22px;
+  }
+
+  .step {
+    gap: 12px;
+  }
+
+  .step__hint {
+    font-size: 14px;
+  }
+
+  .btn {
+    padding: 14px 20px;
+  }
+}

@@ -2,7 +2,7 @@
 import { nextTick, ref } from 'vue'
 import QRCode from 'qrcode'
 import QrCameraScanner from '../QrCameraScanner.vue'
-import { verifyPaymentProof, type PaymentProof } from '../../services/spend'
+import { decodeProof, verifyPaymentProof, type PaymentProof } from '../../services/spend'
 import { recordPendingReceive } from '../../services/wallet'
 import { bytesToHex, randomBytes } from '../../services/crypto'
 import type { Account } from '../../models/Account'
@@ -23,6 +23,7 @@ const verifying = ref(false)
 async function createRequest() {
   const created: PaymentRequest = {
     walletIdPaid: props.account.walletId,
+    merchantName: props.account.username,
     nonce: bytesToHex(randomBytes(16)),
     amount: amount.value,
   }
@@ -44,7 +45,7 @@ async function onDecode(text: string) {
 
   let proof: PaymentProof
   try {
-    proof = JSON.parse(text) as PaymentProof
+    proof = decodeProof(text)
   } catch {
     parseError.value = 'Kein gültiger Zahlungsbeweis in diesem QR-Code gefunden.'
     return
@@ -97,5 +98,13 @@ async function onDecode(text: string) {
 .qr-canvas {
   align-self: center;
   margin: 12px 0;
+}
+
+/* Handy: QR-Code passt sich der Bildschirmhöhe an (qrcode setzt die Größe inline, daher !important) */
+@media (hover: none) and (pointer: coarse) {
+  .qr-canvas {
+    width: min(280px, 38dvh) !important;
+    height: auto !important;
+  }
 }
 </style>

@@ -103,4 +103,23 @@ function onTopUp(coinValue: number) {
   display: flex;
   flex-direction: column;
 }
+
+/* Handy: volle Höhe inkl. mitwandernder Adressleiste, Notch und Home-Leiste freilassen */
+@media (hover: none) and (pointer: coarse) {
+  .app-shell {
+    min-height: 100dvh;
+    padding: max(14px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+      max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    gap: 14px;
+  }
+
+  .app-header h1 {
+    font-size: 18px;
+  }
+
+  .app-header__badge {
+    width: 34px;
+    height: 34px;
+  }
+}
 </style>
