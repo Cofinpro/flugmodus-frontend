@@ -3,8 +3,10 @@ import { ref } from 'vue'
 import { issueFinish, issueStart, type IssueFinishResult, type IssueSession } from '../../services/issue'
 import type { Account } from '../../models/Account'
 
+const COIN_VALUE = 1
+
 const props = defineProps<{ account: Account }>()
-const emit = defineEmits<{ back: [] }>()
+const emit = defineEmits<{ back: []; topup: [number] }>()
 
 const issueSession = ref<IssueSession | null>(null)
 const issueError = ref('')
@@ -39,6 +41,7 @@ async function finish() {
   finishing.value = true
   try {
     finishResult.value = await issueFinish(issueSession.value)
+    emit('topup', COIN_VALUE)
   } catch (e) {
     finishError.value = (e as Error).message
   } finally {

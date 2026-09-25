@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Account } from '../../models/Account'
+import { offlineBalance, pendingBalance } from '../../services/wallet'
 
 defineProps<{ account: Account }>()
 const emit = defineEmits<{ select: ['topup' | 'receive' | 'pay'] }>()
@@ -8,10 +9,18 @@ const emit = defineEmits<{ select: ['topup' | 'receive' | 'pay'] }>()
 <template>
   <section class="step">
     <div class="account-badge card">
-      <div>
-        <p class="step__eyebrow">Willkommen, {{ account.username }}</p>
-        <p class="account-badge__balance">{{ account.balance }} €</p>
+      <p class="step__eyebrow">Willkommen, {{ account.username }}</p>
+      <div class="account-badge__row">
+        <div>
+          <p class="step__hint">Online</p>
+          <p class="account-badge__balance">{{ account.balance }} €</p>
+        </div>
+        <div>
+          <p class="step__hint">Offline</p>
+          <p class="account-badge__balance">{{ offlineBalance }} €</p>
+        </div>
       </div>
+      <p v-if="pendingBalance > 0" class="step__hint">Ausstehend: {{ pendingBalance }} € (wartet auf Sync)</p>
       <p class="step__hint">Wallet {{ account.walletId.slice(0, 10) }}…</p>
     </div>
 
@@ -35,9 +44,13 @@ const emit = defineEmits<{ select: ['topup' | 'receive' | 'pay'] }>()
 <style scoped>
 .account-badge {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.account-badge__row {
+  display: flex;
+  gap: 2rem;
 }
 
 .account-badge__balance {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Account } from './models/Account'
+import { applyTopUp, resetWallet } from './services/wallet'
 import BackendUrlStep from './components/steps/BackendUrlStep.vue'
 import AccountStep from './components/steps/AccountStep.vue'
 import MenuStep from './components/steps/MenuStep.vue'
@@ -15,11 +16,18 @@ const account = ref<Account | null>(null)
 
 function onAccountCreated(created: Account) {
   account.value = created
+  resetWallet()
   step.value = 'menu'
 }
 
 function onMenuSelect(target: 'topup' | 'receive' | 'pay') {
   step.value = target
+}
+
+function onTopUp(coinValue: number) {
+  if (!account.value) return
+  account.value.balance -= coinValue
+  applyTopUp(coinValue)
 }
 </script>
 
@@ -34,7 +42,12 @@ function onMenuSelect(target: 'topup' | 'receive' | 'pay') {
       <BackendUrlStep v-if="step === 'backend'" @next="step = 'account'" />
       <AccountStep v-else-if="step === 'account'" @created="onAccountCreated" />
       <MenuStep v-else-if="step === 'menu' && account" :account="account" @select="onMenuSelect" />
-      <TopUpStep v-else-if="step === 'topup' && account" :account="account" @back="step = 'menu'" />
+      <TopUpStep
+        v-else-if="step === 'topup' && account"
+        :account="account"
+        @back="step = 'menu'"
+        @topup="onTopUp"
+      />
       <ReceiveStep v-else-if="step === 'receive' && account" :account="account" @back="step = 'menu'" />
       <PayStep v-else-if="step === 'pay'" @back="step = 'menu'" />
     </main>
