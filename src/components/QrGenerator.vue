@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import QRCode from 'qrcode'
 import { createAccount } from '../services/account'
 import { backendUrl } from '../services/backend'
+import { issueStart, type IssueStartResult } from '../services/issue'
 import type { Account } from '../models/Account'
 import type { Rfp } from '../models/Rfp'
 
@@ -10,6 +11,10 @@ const username = ref('')
 const account = ref<Account | null>(null)
 const accountError = ref('')
 const creatingAccount = ref(false)
+
+const issueResult = ref<IssueStartResult | null>(null)
+const issueError = ref('')
+const issuing = ref(false)
 
 const amount = ref<number>(10)
 const rfp = ref<Rfp | null>(null)
@@ -21,10 +26,24 @@ async function newAccount() {
   try {
     account.value = await createAccount(username.value)
     rfp.value = null
+    issueResult.value = null
   } catch (e) {
     accountError.value = (e as Error).message
   } finally {
     creatingAccount.value = false
+  }
+}
+
+async function topUpAccount() {
+  if (!account.value) return
+  issueError.value = ''
+  issuing.value = true
+  try {
+    issueResult.value = await issueStart(account.value.accountId)
+  } catch (e) {
+    issueError.value = (e as Error).message
+  } finally {
+    issuing.value = false
   }
 }
 
@@ -56,6 +75,15 @@ async function generateRfp() {
     <template v-if="account">
       <p>Wallet-ID: {{ account.walletId }}</p>
       <p>Kontostand: {{ account.balance }}</p>
+    </template>
+
+    <button :disabled="!account || issuing" @click="topUpAccount">
+      {{ issuing ? 'Lädt auf…' : 'Konto aufladen' }}
+    </button>
+    <p v-if="issueError">{{ issueError }}</p>
+    <template v-if="issueResult">
+      <p>Session-ID: {{ issueResult.sessionId }}</p>
+      <p>Kept-Candidate-Index: {{ issueResult.keptCandidateIndex }}</p>
     </template>
 
     <h2>Zahlungsanfrage (RFP)</h2>
