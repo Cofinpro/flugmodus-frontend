@@ -164,8 +164,35 @@ function goHome() {
         <div class="modal__actions">
           <button class="btn modal__yes" :disabled="!enoughBalance" @click="confirmPayment">Ja, zahlen</button>
           <button class="btn modal__cancel" @click="cancelPayment">Abbrechen</button>
-          <button v-if="spentCoins.length > 0" class="btn fraud-btn" :disabled="paying" @click="fraudPay">
-            🚨 Bereits ausgegebene Münze nochmal einsetzen (Fraud-Demo)
+          <button
+            v-if="spentCoins.length > 0"
+            class="btn fraud-btn"
+            :disabled="paying"
+            title="muehuehue"
+            @click="fraudPay"
+          >
+            <!-- Hacker-Katze: Kapuze, Sonnenbrille, grünes Terminal-Glimmen. muehuehue. -->
+            <svg class="hacker-cat" viewBox="0 0 64 64" aria-hidden="true">
+              <ellipse class="hacker-cat__glow" cx="32" cy="58" rx="22" ry="5" />
+              <path class="hacker-cat__hood" d="M6 62 C6 34 13 12 32 8 C51 12 58 34 58 62 Z" />
+              <path class="hacker-cat__fur" d="M17 33 L19 15 L28 25 Z M47 33 L45 15 L36 25 Z" />
+              <path class="hacker-cat__ear" d="M20 28 L21 19 L26 25 Z M44 28 L43 19 L38 25 Z" />
+              <ellipse class="hacker-cat__fur" cx="32" cy="38" rx="16" ry="14" />
+              <g class="hacker-cat__shades">
+                <rect x="17" y="31" width="13" height="8" rx="3" />
+                <rect x="34" y="31" width="13" height="8" rx="3" />
+                <path d="M30 34 H34" />
+              </g>
+              <path class="hacker-cat__code" d="M19 35 H24 M20 37 H27 M36 35 H41 M37 37 H44" />
+              <path class="hacker-cat__glint" d="M21 32.5 L24 32.5 M38 32.5 L41 32.5" />
+              <path class="hacker-cat__nose" d="M30 43 H34 L32 45.5 Z" />
+              <path class="hacker-cat__grin" d="M27 47.5 Q32 51 38 46.5" />
+              <path class="hacker-cat__whisker" d="M16 44 L6 42 M16 47 L7 48 M48 44 L58 42 M48 47 L57 48" />
+            </svg>
+            <span class="fraud-btn__text">
+              <strong>Muehuehue</strong>
+              <small>Bereits ausgegebene Münze nochmal einsetzen · Fraud-Demo</small>
+            </span>
           </button>
         </div>
       </template>
@@ -274,5 +301,70 @@ function goHome() {
 .fraud-btn:hover:not(:disabled) {
   background: var(--fm-red);
   color: var(--fm-paper);
+}
+
+.fraud-btn {
+  justify-content: flex-start;
+  gap: 14px;
+  padding-block: 12px;
+  text-align: left;
+}
+
+.fraud-btn__text {
+  display: grid;
+  gap: 4px;
+}
+
+.fraud-btn__text strong {
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.fraud-btn__text small {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  opacity: 0.85;
+}
+
+/* Hacker-Katze */
+.hacker-cat {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  overflow: visible;
+}
+.hacker-cat__glow { fill: #3ee05b; opacity: 0.25; }
+.hacker-cat__hood { fill: var(--fm-ink); }
+.hacker-cat__fur { fill: #8f95a3; }
+.hacker-cat__ear { fill: #f2a7b8; }
+.hacker-cat__shades rect { fill: #050608; }
+.hacker-cat__shades path { fill: none; stroke: #050608; stroke-width: 2; }
+.hacker-cat__code { fill: none; stroke: #3ee05b; stroke-width: 1; stroke-linecap: round; opacity: 0.85; }
+.hacker-cat__glint { fill: none; stroke: #fff; stroke-width: 1.2; stroke-linecap: round; opacity: 0; }
+.hacker-cat__nose { fill: #f2a7b8; }
+.hacker-cat__grin { fill: none; stroke: var(--fm-ink); stroke-width: 1.8; stroke-linecap: round; }
+.hacker-cat__whisker { fill: none; stroke: var(--fm-ink); stroke-width: 1; stroke-linecap: round; opacity: 0.6; }
+
+/* muehuehue: beim Drüberfahren blitzt die Brille, beim Drücken kichert die Katze */
+.fraud-btn:hover .hacker-cat__glint { animation: hacker-glint 1.4s ease-in-out infinite; }
+.fraud-btn:active .hacker-cat { animation: hacker-giggle 0.12s steps(2) 4; }
+.hacker-cat__code { animation: hacker-code 1.1s steps(3) infinite; }
+@keyframes hacker-glint {
+  0%, 60%, 100% { opacity: 0; }
+  70%, 80% { opacity: 1; }
+}
+@keyframes hacker-giggle {
+  from { transform: rotate(-6deg) translateY(-1px); }
+  to { transform: rotate(6deg) translateY(1px); }
+}
+@keyframes hacker-code {
+  33% { stroke-dasharray: 2 1; }
+  66% { stroke-dasharray: 4 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hacker-cat,
+  .hacker-cat__glint,
+  .hacker-cat__code { animation: none !important; }
 }
 </style>
