@@ -148,7 +148,13 @@ export async function verifyPaymentProof(
       return reject('Diese Münze wurde hier schon einmal angenommen – mögliche Doppelausgabe.')
     }
     inThisPayment.add(coinId)
-    received.push({ coinId, value: 1, signature: coinReveal.signature }) // nur 1-€-Münzen
+    received.push({
+      coinId,
+      value: 1, // nur 1-€-Münzen
+      signature: coinReveal.signature,
+      nonce: request.nonce,
+      pairs: coinReveal.pairs.map(({ revealed, salt, otherHash }) => ({ revealed, salt, otherHash })),
+    })
   }
 
   const total = received.length

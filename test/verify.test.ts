@@ -52,6 +52,15 @@ test('korrekte Zahlung wird angenommen', async () => {
   assert.equal(result.amount, 1)
 })
 
+test('angenommene Münze trägt das Transcript für die Bank (nonce + 12 Paare)', async () => {
+  const proof = await buildPaymentProof([await makeCoin()], IDENTITY_HEX, request)
+  const result = await verifyPaymentProof(proof, request, TEST_N_HEX, E)
+  const [coin] = result.coins ?? []
+  assert.equal(coin.nonce, request.nonce)
+  assert.equal(coin.pairs?.length, 12)
+  assert.deepEqual(coin.pairs?.[0], { revealed: proof.coins[0].pairs[0].revealed, salt: proof.coins[0].pairs[0].salt, otherHash: proof.coins[0].pairs[0].otherHash })
+})
+
 test('QR mit den falschen Challenge-Bits aus Teil 1 wird abgelehnt', async () => {
   const coin = await coinWhere(async (c) => !sameBits(await buggyBits(c), await challengeBits(c.coinIdBytes, request.walletIdPaid, request.nonce)))
   const proof = await buggyProof(coin)

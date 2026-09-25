@@ -14,6 +14,9 @@ export interface ReceivedCoin {
   coinId: string // hex, SHA-256 über die Paar-Hashes
   value: number
   signature: string // hex
+  // Zahlungs-Transcript für die Bank: deckt bei einer Doppelausgabe den Zahler auf (XOR der Hälften)
+  nonce?: string // hex, nonce der eigenen Zahlungsanfrage
+  pairs?: { revealed: string; salt: string; otherHash: string }[]
 }
 
 export interface PendingTransaction {

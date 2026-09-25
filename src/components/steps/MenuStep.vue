@@ -16,6 +16,18 @@ const syncing = ref(false)
 const syncError = ref('')
 const syncMessage = ref('')
 
+// Profilbild groß: Tippen öffnet, Schließen per ✕, Knopf, Tippen daneben oder Esc
+const photoDialog = ref<HTMLDialogElement | null>(null)
+function openPhoto() {
+  photoDialog.value?.showModal()
+}
+function closePhoto() {
+  photoDialog.value?.close()
+}
+function onPhotoDialogClick(event: MouseEvent) {
+  if (event.target === photoDialog.value) closePhoto() // Tipp auf den dunklen Hintergrund
+}
+
 async function sync() {
   const received = pendingTransactions.value.flatMap((tx) => tx.coins)
   if (received.length === 0) return
@@ -25,9 +37,15 @@ async function sync() {
   syncMessage.value = ''
   try {
     const result = await syncAccount(props.account.walletId, received)
+    // Jede Münze ist jetzt erledigt – gutgeschrieben oder endgültig abgelehnt. Nichts wird doppelt eingereicht.
     clearPendingTransactions()
     emit('synced', result.balance)
-    syncMessage.value = `${result.credited} € gutgeschrieben.`
+    if (result.credited > 0 || result.rejected.length === 0) syncMessage.value = `${result.credited} € gutgeschrieben.`
+    if (result.rejected.length > 0) {
+      const reasons = [...new Set(result.rejected.map((r) => r.reason))].join(', ')
+      const n = result.rejected.length
+      syncError.value = `${n} ${n === 1 ? 'Münze' : 'Münzen'} abgelehnt: ${reasons}.`
+    }
   } catch (e) {
     syncError.value = (e as Error).message
   } finally {
@@ -40,7 +58,15 @@ async function sync() {
   <section class="step">
     <div class="account-badge card">
       <div class="account-badge__head">
-        <img v-if="account.photo" :src="account.photo" class="account-badge__photo" alt="" />
+        <button
+          v-if="account.photo"
+          type="button"
+          class="account-badge__photo-btn"
+          aria-label="Profilbild groß anzeigen"
+          @click="openPhoto"
+        >
+          <img :src="account.photo" class="account-badge__photo" alt="" />
+        </button>
         <p class="step__eyebrow">Willkommen, {{ account.username }}</p>
       </div>
       <div class="account-badge__row">
@@ -99,6 +125,24 @@ async function sync() {
         <span class="menu-tile__hint">Betrag anfordern</span>
       </button>
     </div>
+
+    <dialog
+      v-if="account.photo"
+      ref="photoDialog"
+      class="photo-dialog"
+      aria-label="Profilbild"
+      @click="onPhotoDialogClick"
+      @cancel.prevent="closePhoto"
+    >
+      <div class="photo-dialog__card">
+        <button type="button" class="photo-dialog__close" aria-label="Schließen" @click="closePhoto">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>
+        <img :src="account.photo" class="photo-dialog__image" :alt="`Profilbild von ${account.username}`" />
+        <p class="step__eyebrow">{{ account.username }}</p>
+        <button type="button" class="btn" @click="closePhoto">Schließen</button>
+      </div>
+    </dialog>
   </section>
 </template>
 
@@ -115,7 +159,27 @@ async function sync() {
   gap: 12px;
 }
 
+.account-badge__photo-btn {
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: zoom-in;
+  transition: transform 0.15s ease;
+}
+
+.account-badge__photo-btn:active {
+  transform: scale(0.94);
+}
+
+.account-badge__photo-btn:focus-visible {
+  outline: 3px solid var(--fm-amber);
+  outline-offset: 3px;
+}
+
 .account-badge__photo {
+  display: block;
   flex: none;
   width: 48px;
   height: 48px;
@@ -233,5 +297,92 @@ async function sync() {
   font-weight: 500;
   line-height: 1.3;
   color: var(--fm-ink-soft);
+}
+
+/* Profilbild groß */
+.photo-dialog {
+  width: min(420px, calc(100% - 32px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.photo-dialog::backdrop {
+  background: rgb(7 9 17 / 0.82);
+  backdrop-filter: blur(4px);
+}
+
+.photo-dialog[open] .photo-dialog__card {
+  animation: photo-pop 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes photo-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+.photo-dialog__card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 22px 22px 20px;
+  border-radius: var(--fm-radius-ticket);
+  background: var(--fm-paper-sheen), var(--fm-paper);
+  box-shadow: 0 30px 60px rgb(0 0 0 / 0.5);
+}
+
+.photo-dialog__image {
+  display: block;
+  width: min(100%, 62dvh);
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1.5px var(--fm-ink);
+}
+
+.photo-dialog__close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fm-ink);
+  color: var(--fm-paper);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+}
+
+.photo-dialog__close svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.photo-dialog__close:hover {
+  color: var(--fm-amber);
+}
+
+.photo-dialog__card .btn {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-dialog[open] .photo-dialog__card {
+    animation: none;
+  }
 }
 </style>

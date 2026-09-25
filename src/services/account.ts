@@ -49,11 +49,20 @@ interface SyncApiResponse {
   account_id: string
   credited: number
   balance: number
+  rejected?: { coin_id: string; reason: string }[]
 }
 
 export interface SyncResult {
   credited: number
   balance: number
+  // Münzen, die die Bank nicht gutgeschrieben hat (z. B. schon eingelöst) – mit lesbarem Grund
+  rejected: { coinId: string; reason: string }[]
+}
+
+const REJECT_REASONS: Record<string, string> = {
+  unknown_coin_value: 'unbekannter Münzwert',
+  invalid_coin: 'ungültige Signatur',
+  coin_already_redeemed: 'schon eingelöst – Doppelausgabe',
 }
 
 const SYNC_ERRORS: Record<string, string> = {
@@ -75,6 +84,13 @@ export async function syncAccount(walletId: string, coins: ReceivedCoin[]): Prom
         coin_id: coin.coinId,
         coin_value: coin.value,
         signature: coin.signature,
+        // Transcript: damit die Bank eine Doppelausgabe dem Zahler zuordnen kann
+        ...(coin.nonce && coin.pairs
+          ? {
+              nonce: coin.nonce,
+              pairs: coin.pairs.map((pair) => ({ revealed: pair.revealed, salt: pair.salt, other_hash: pair.otherHash })),
+            }
+          : {}),
       })),
     }),
   })
@@ -89,5 +105,9 @@ export async function syncAccount(walletId: string, coins: ReceivedCoin[]): Prom
   }
 
   const data: SyncApiResponse = await response.json()
-  return { credited: data.credited, balance: data.balance }
+  return {
+    credited: data.credited,
+    balance: data.balance,
+    rejected: (data.rejected ?? []).map((r) => ({ coinId: r.coin_id, reason: REJECT_REASONS[r.reason] ?? r.reason })),
+  }
 }
