@@ -8,6 +8,8 @@ interface AccountApiResponse {
   wallet_id: string
   balance: number
   created_at: string
+  bank_public_key: string
+  bank_exponent: number
 }
 
 function mapAccount(data: AccountApiResponse): Account {
@@ -18,6 +20,8 @@ function mapAccount(data: AccountApiResponse): Account {
     walletId: data.wallet_id,
     balance: data.balance,
     createdAt: data.created_at,
+    bankPublicKey: data.bank_public_key,
+    bankExponent: data.bank_exponent,
   }
 }
 

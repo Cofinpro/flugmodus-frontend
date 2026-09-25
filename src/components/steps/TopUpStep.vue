@@ -20,7 +20,12 @@ async function start() {
   finishError.value = ''
   issuing.value = true
   try {
-    issueSession.value = await issueStart(props.account.accountId, props.account.u)
+    issueSession.value = await issueStart(
+      props.account.accountId,
+      props.account.u,
+      props.account.bankPublicKey,
+      props.account.bankExponent,
+    )
   } catch (e) {
     issueError.value = (e as Error).message
   } finally {
