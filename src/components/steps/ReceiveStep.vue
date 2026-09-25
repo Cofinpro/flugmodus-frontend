@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import QRCode from 'qrcode'
 import QrCameraScanner from '../QrCameraScanner.vue'
 import { verifyPaymentProof, type PaymentProof } from '../../services/spend'
@@ -30,6 +30,7 @@ async function createRequest() {
   accepted.value = false
   verifyError.value = ''
 
+  await nextTick()
   if (canvas.value) {
     await QRCode.toCanvas(canvas.value, JSON.stringify(created), { width: 280 })
   }

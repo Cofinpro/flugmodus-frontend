@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import QRCode from 'qrcode'
 import QrCameraScanner from '../QrCameraScanner.vue'
 import { buildPaymentProof } from '../../services/spend'
@@ -40,10 +40,12 @@ async function confirmPayment() {
   try {
     const proof = await buildPaymentProof(coinsToSpend, props.account.u, request.value)
     removeCoins(coinsToSpend)
+    paid.value = true
+
+    await nextTick()
     if (canvas.value) {
       await QRCode.toCanvas(canvas.value, JSON.stringify(proof), { width: 280 })
     }
-    paid.value = true
   } finally {
     paying.value = false
   }
