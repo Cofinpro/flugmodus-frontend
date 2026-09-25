@@ -2,12 +2,12 @@
 import { onBeforeUnmount, ref } from 'vue'
 import QrScanner from 'qr-scanner'
 import QrScannerWorkerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
-import { backendUrl, isHttpUrl, setBackendUrl } from '../services/backend'
 
 QrScanner.WORKER_PATH = QrScannerWorkerPath
 
+const emit = defineEmits<{ decode: [string] }>()
+
 const videoRef = ref<HTMLVideoElement | null>(null)
-const result = ref('')
 const error = ref('')
 const scanning = ref(false)
 let scanner: QrScanner | null = null
@@ -18,12 +18,7 @@ async function start() {
 
   scanner = new QrScanner(
     videoRef.value,
-    (r) => {
-      result.value = r.data
-      if (isHttpUrl(r.data)) {
-        setBackendUrl(r.data)
-      }
-    },
+    (result) => emit('decode', result.data),
     { highlightScanRegion: true, highlightCodeOutline: true },
   )
 
@@ -47,22 +42,27 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section>
-    <h2>QR-Code Scanner</h2>
-    <video ref="videoRef" class="preview"></video>
-    <div>
-      <button v-if="!scanning" @click="start">Kamera starten</button>
-      <button v-else @click="stop">Kamera stoppen</button>
-    </div>
-    <p v-if="error">{{ error }}</p>
-    <p v-else>Ergebnis: {{ result || '–' }}</p>
-    <p>Backend-URL: {{ backendUrl || 'nicht konfiguriert' }}</p>
-  </section>
+  <div class="qr-camera">
+    <video ref="videoRef" class="qr-camera__preview"></video>
+    <button class="btn btn--ghost" v-if="!scanning" @click="start">Kamera starten</button>
+    <button class="btn btn--ghost" v-else @click="stop">Kamera stoppen</button>
+    <p v-if="error" class="step__error">{{ error }}</p>
+  </div>
 </template>
 
 <style scoped>
-.preview {
+.qr-camera {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.qr-camera__preview {
   width: 100%;
-  max-width: 320px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
 }
 </style>
