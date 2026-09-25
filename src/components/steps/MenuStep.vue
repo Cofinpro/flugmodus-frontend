@@ -52,8 +52,8 @@ async function sync() {
       </div>
       <p v-if="pendingBalance > 0" class="step__hint">Ausstehend: {{ pendingBalance }} € (wartet auf Sync)</p>
       <p class="step__hint">Wallet {{ account.walletId.slice(0, 10) }}…</p>
-      <button v-if="pendingBalance > 0" class="btn btn--primary" :disabled="syncing" @click="sync">
-        {{ syncing ? 'Synchronisiere…' : `${pendingBalance} € synchronisieren` }}
+      <button class="btn btn--primary" :disabled="syncing || pendingBalance === 0" @click="sync">
+        {{ syncing ? 'Synchronisiere…' : pendingBalance > 0 ? `${pendingBalance} € synchronisieren` : 'Synchronisieren' }}
       </button>
       <p v-if="syncMessage" class="step__success">{{ syncMessage }}</p>
       <p v-if="syncError" class="step__error">{{ syncError }}</p>
