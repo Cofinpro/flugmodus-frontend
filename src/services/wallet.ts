@@ -22,6 +22,9 @@ export interface PendingTransaction {
 export const coins = ref<Coin[]>([])
 export const offlineBalance = computed(() => coins.value.reduce((sum, coin) => sum + coin.value, 0))
 
+// Archiv bereits ausgegebener Münzen – nur für die Fraud-Demo (echtes Doppelausgeben).
+export const spentCoins = ref<Coin[]>([])
+
 export const pendingTransactions = ref<PendingTransaction[]>([])
 export const pendingBalance = computed(() =>
   pendingTransactions.value.reduce((sum, tx) => sum + tx.amount, 0),
@@ -29,6 +32,7 @@ export const pendingBalance = computed(() =>
 
 export function resetWallet() {
   coins.value = []
+  spentCoins.value = []
   pendingTransactions.value = []
 }
 
@@ -36,8 +40,8 @@ export function addCoin(coin: Coin) {
   coins.value.push(coin)
 }
 
-export function selectCoins(amount: number): Coin[] | null {
-  const usable = coins.value.filter((coin) => coin.value <= amount)
+export function selectCoins(amount: number, pool: Coin[] = coins.value): Coin[] | null {
+  const usable = pool.filter((coin) => coin.value <= amount)
   usable.sort((a, b) => b.value - a.value)
 
   const selected: Coin[] = []
@@ -55,6 +59,7 @@ export function selectCoins(amount: number): Coin[] | null {
 
 export function removeCoins(spent: Coin[]) {
   coins.value = coins.value.filter((coin) => !spent.includes(coin))
+  spentCoins.value.push(...spent)
 }
 
 export function recordPendingReceive(walletIdPaid: string, nonce: string, amount: number) {
