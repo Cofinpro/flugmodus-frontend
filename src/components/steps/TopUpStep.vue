@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { issueFinish, issueStart, type IssueSession } from '../../services/issue'
-import type { Coin } from '../../services/wallet'
+import { computed, ref } from 'vue'
+import { issueFinish, issueStart } from '../../services/issue'
 import type { Account } from '../../models/Account'
 
 const COIN_VALUE = 1
@@ -9,10 +8,6 @@ const MAX_DIGITS = 3
 
 const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ back: []; topup: [number] }>()
-
-const issueSession = ref<IssueSession | null>(null)
-const issueError = ref('')
-const issuing = ref(false)
 
 const amount = ref(0)
 const limitHint = ref('')
@@ -23,56 +18,51 @@ const running = ref(false)
 const done = ref(0)
 const total = ref(0)
 const error = ref('')
-const success = ref('')
 
 const maxAmount = computed(() => Math.max(0, Math.floor(props.account.balance / COIN_VALUE)))
 
-const finishResult = ref<Coin | null>(null)
-const finishError = ref('')
-const finishing = ref(false)
+function press(digit: number) {
+  if (running.value) return
+  const next = amount.value * 10 + digit
+  if (String(next).length > MAX_DIGITS || next > maxAmount.value) {
+    limitHint.value = `Maximal ${maxAmount.value} € verfügbar.`
+    return
+  }
+  limitHint.value = ''
+  amount.value = next
+}
+
+function clear() {
+  amount.value = 0
+  limitHint.value = ''
+}
+
+function backspace() {
+  amount.value = Math.floor(amount.value / 10)
+}
+
+function askConfirm() {
+  if (amount.value === 0) return
+  dialog.value?.showModal()
+}
 
 function cancel() {
   dialog.value?.close()
 }
-
-async function start() {
-  issueError.value = ''
-  finishResult.value = null
-  finishError.value = ''
-  issuing.value = true
 
 function backToWallet() {
   successDialog.value?.close()
   emit('back')
 }
 
-// Pro Münze wie bisher: Kandidaten erzeugen (issueStart), öffnen und signieren lassen (issueFinish)
+// Pro Münze: Kandidaten erzeugen (issueStart), öffnen und signieren lassen (issueFinish)
 async function confirm() {
   dialog.value?.close()
   running.value = true
   done.value = 0
   total.value = amount.value
+  error.value = ''
   try {
-    issueSession.value = await issueStart(
-      props.account.accountId,
-      props.account.u,
-      props.account.bankPublicKey,
-      props.account.bankExponent,
-    )
-  } catch (e) {
-    issueError.value = (e as Error).message
-  } finally {
-    issuing.value = false
-  }
-}
-
-async function finish() {
-  if (!issueSession.value) return
-  finishError.value = ''
-  finishing.value = true
-  try {
-    finishResult.value = await issueFinish(issueSession.value)
-    emit('topup', COIN_VALUE)
     for (let i = 0; i < total.value; i++) {
       const session = await issueStart(
         props.account.accountId,
@@ -90,6 +80,7 @@ async function finish() {
     error.value = `${done.value} von ${total.value} Münzen aufgeladen. Fehler: ${(e as Error).message}`
     amount.value = total.value - done.value
   } finally {
+    running.value = false
   }
 }
 </script>
@@ -98,68 +89,58 @@ async function finish() {
   <section class="step card">
     <button class="btn btn--ghost btn--back" @click="emit('back')">← Zurück</button>
     <p class="step__eyebrow">Aufladen</p>
-<h2>Konto aufladen</h2>
-<p class="step__hint">Erzeugt 100 geblendete Münz-Kandidaten und startet die Ausgabe bei der Bank.</p>
+    <h2>Konto aufladen</h2>
 
-<button class="btn btn--primary" :disabled="issuing" @click="start">
-  {{ issuing ? 'Erzeuge Kandidaten…' : 'Aufladung starten' }}
-</button>
-<p v-if="issueError" class="step__error">{{ issueError }}</p>
+    <div class="topup-display" aria-live="polite">
+      <span class="fm-amount" :class="{ 'topup-display--zero': amount === 0 }">{{ amount }}<small>€</small></span>
+      <p class="step__hint">Verfügbar: {{ maxAmount }} € · 1 Münze = 1 €</p>
+      <p v-if="limitHint" class="topup-limit">{{ limitHint }}</p>
+    </div>
 
-<div class="topup-display" aria-live="polite">
-  <span class="fm-amount" :class="{ 'topup-display--zero': amount === 0 }">{{ amount }}<small>€</small></span>
-  <p class="step__hint">Verfügbar: {{ maxAmount }} € · 1 Münze = 1 €</p>
-  <p v-if="limitHint" class="topup-limit">{{ limitHint }}</p>
-</div>
+    <div class="numpad" role="group" aria-label="Ziffernblock">
+      <button
+        v-for="digit in [1, 2, 3, 4, 5, 6, 7, 8, 9]"
+        :key="digit"
+        class="numpad__key"
+        :disabled="running"
+        @click="press(digit)"
+      >
+        {{ digit }}
+      </button>
+      <button class="numpad__key numpad__key--soft" :disabled="running" aria-label="Löschen" @click="clear">C</button>
+      <button class="numpad__key" :disabled="running" @click="press(0)">0</button>
+      <button class="numpad__key numpad__key--soft" :disabled="running" aria-label="Letzte Ziffer löschen" @click="backspace">
+        ⌫
+      </button>
+    </div>
 
-<div class="numpad" role="group" aria-label="Ziffernblock">
-  <button v-for="digit in [1, 2, 3, 4, 5, 6, 7, 8, 9]" :key="digit" class="numpad__key" :disabled="running" @click="press(digit)">
-    {{ digit }}
-  </button>
-  <button class="numpad__key numpad__key--soft" :disabled="running" aria-label="Löschen" @click="clear">C</button>
-  <button class="numpad__key" :disabled="running" @click="press(0)">0</button>
-  <button class="numpad__key numpad__key--soft" :disabled="running" aria-label="Letzte Ziffer löschen" @click="backspace">⌫</button>
-</div>
+    <button class="btn btn--primary" :disabled="amount === 0 || running" @click="askConfirm">
+      {{ running ? `Münze ${Math.min(done + 1, total)} von ${total} …` : 'Aufladen' }}
+    </button>
 
-<template v-if="issueSession">
-  <p class="step__hint">Session {{ issueSession.sessionId.slice(0, 12) }}…</p>
-  <button class="btn btn--primary" :disabled="finishing" @click="finish">
-    {{ finishing ? 'Öffne Kandidaten…' : 'Abschließen' }}
-  </button>
-  <p v-if="finishError" class="step__error">{{ finishError }}</p>
-  <p v-if="finishResult" class="step__success">
-    Aufgeladen! Münze mit Signature {{ finishResult.signature.toString(16).slice(0, 20) }}… im Wallet.
-  </p>
-</template>
+    <div v-if="running" class="topup-progress" role="progressbar" :aria-valuenow="done" :aria-valuemax="total">
+      <span :style="{ width: `${(done / total) * 100}%` }"></span>
+    </div>
+    <p v-if="error" class="step__error">{{ error }}</p>
 
-<button class="btn btn--primary" :disabled="amount === 0 || running" @click="askConfirm">
-  {{ running ? `Münze ${Math.min(done + 1, total)} von ${total} …` : 'Aufladen' }}
-</button>
+    <dialog ref="dialog" class="topup-dialog" @cancel.prevent="cancel">
+      <p class="step__eyebrow">Bestätigen</p>
+      <h3>Möchtest du {{ amount }} € aufladen?</h3>
+      <p class="step__hint">{{ amount }} {{ amount === 1 ? 'Münze' : 'Münzen' }} à 1 € werden bei der Bank abgehoben.</p>
+      <div class="topup-dialog__actions">
+        <button class="btn topup-dialog__yes" @click="confirm">Ja</button>
+        <button class="btn topup-dialog__cancel" @click="cancel">Abbrechen</button>
+      </div>
+    </dialog>
 
-<div v-if="running" class="topup-progress" role="progressbar" :aria-valuenow="done" :aria-valuemax="total">
-  <span :style="{ width: `${(done / total) * 100}%` }"></span>
-</div>
-<p v-if="error" class="step__error">{{ error }}</p>
-<p v-if="success" class="step__success">{{ success }}</p>
-
-<dialog ref="dialog" class="topup-dialog" @cancel.prevent="cancel">
-  <p class="step__eyebrow">Bestätigen</p>
-  <h3>Möchtest du {{ amount }} € aufladen?</h3>
-  <p class="step__hint">{{ amount }} {{ amount === 1 ? 'Münze' : 'Münzen' }} à 1 € werden bei der Bank abgehoben.</p>
-  <div class="topup-dialog__actions">
-    <button class="btn topup-dialog__yes" @click="confirm">Ja</button>
-    <button class="btn topup-dialog__cancel" @click="cancel">Abbrechen</button>
-  </div>
-</dialog>
-
-<dialog ref="successDialog" class="topup-dialog" @cancel.prevent="backToWallet">
-  <p class="step__eyebrow">Erledigt</p>
-  <h3>Aufgeladen!</h3>
-  <p class="step__hint">{{ total }} € {{ total === 1 ? 'ist' : 'sind' }} jetzt in deiner Wallet.</p>
-  <div class="topup-dialog__actions">
-    <button class="btn btn--primary" @click="backToWallet">Zurück</button>
-  </div>
-</dialog>
+    <dialog ref="successDialog" class="topup-dialog" @cancel.prevent="backToWallet">
+      <p class="step__eyebrow">Erledigt</p>
+      <h3>Aufgeladen!</h3>
+      <p class="step__hint">{{ total }} € {{ total === 1 ? 'ist' : 'sind' }} jetzt in deiner Wallet.</p>
+      <div class="topup-dialog__actions">
+        <button class="btn btn--primary" @click="backToWallet">Zurück</button>
+      </div>
+    </dialog>
   </section>
 </template>
 
