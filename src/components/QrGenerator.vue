@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import QRCode from 'qrcode'
 import { createAccount } from '../services/account'
 import { backendUrl } from '../services/backend'
-import { issueStart, type IssueStartResult } from '../services/issue'
+import { issueFinish, issueStart, type IssueFinishResult, type IssueSession } from '../services/issue'
 import type { Account } from '../models/Account'
 import type { Rfp } from '../models/Rfp'
 
@@ -12,9 +12,13 @@ const account = ref<Account | null>(null)
 const accountError = ref('')
 const creatingAccount = ref(false)
 
-const issueResult = ref<IssueStartResult | null>(null)
+const issueSession = ref<IssueSession | null>(null)
 const issueError = ref('')
 const issuing = ref(false)
+
+const finishResult = ref<IssueFinishResult | null>(null)
+const finishError = ref('')
+const finishing = ref(false)
 
 const amount = ref<number>(10)
 const rfp = ref<Rfp | null>(null)
@@ -26,7 +30,8 @@ async function newAccount() {
   try {
     account.value = await createAccount(username.value)
     rfp.value = null
-    issueResult.value = null
+    issueSession.value = null
+    finishResult.value = null
   } catch (e) {
     accountError.value = (e as Error).message
   } finally {
@@ -37,13 +42,28 @@ async function newAccount() {
 async function topUpAccount() {
   if (!account.value) return
   issueError.value = ''
+  finishResult.value = null
+  finishError.value = ''
   issuing.value = true
   try {
-    issueResult.value = await issueStart(account.value.accountId)
+    issueSession.value = await issueStart(account.value.accountId, account.value.u)
   } catch (e) {
     issueError.value = (e as Error).message
   } finally {
     issuing.value = false
+  }
+}
+
+async function finishTopUp() {
+  if (!issueSession.value) return
+  finishError.value = ''
+  finishing.value = true
+  try {
+    finishResult.value = await issueFinish(issueSession.value)
+  } catch (e) {
+    finishError.value = (e as Error).message
+  } finally {
+    finishing.value = false
   }
 }
 
@@ -78,12 +98,18 @@ async function generateRfp() {
     </template>
 
     <button :disabled="!account || issuing" @click="topUpAccount">
-      {{ issuing ? 'Lädt auf…' : 'Konto aufladen' }}
+      {{ issuing ? 'Erzeuge Kandidaten…' : 'Konto aufladen' }}
     </button>
     <p v-if="issueError">{{ issueError }}</p>
-    <template v-if="issueResult">
-      <p>Session-ID: {{ issueResult.sessionId }}</p>
-      <p>Kept-Candidate-Index: {{ issueResult.keptCandidateIndex }}</p>
+    <template v-if="issueSession">
+      <p>Session-ID: {{ issueSession.sessionId }}</p>
+      <p>Kept-Candidate-Index: {{ issueSession.keptCandidateIndex }}</p>
+
+      <button :disabled="finishing" @click="finishTopUp">
+        {{ finishing ? 'Öffne Kandidaten…' : 'Abschließen' }}
+      </button>
+      <p v-if="finishError">{{ finishError }}</p>
+      <p v-if="finishResult">Blind-Signature: {{ finishResult.blindSignature }}</p>
     </template>
 
     <h2>Zahlungsanfrage (RFP)</h2>
