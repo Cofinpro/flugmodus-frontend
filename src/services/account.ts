@@ -10,6 +10,6 @@ function randomHex(byteLength: number): string {
 export function createAccount(): { account: Account; token: Token } {
   const walletId = randomHex(8)
   const account: Account = { walletId, u: randomHex(4) }
-  const token: Token = { walletId, signature: randomHex(32) }
+  const token: Token = { walletId, signature: randomHex(32), spent: false }
   return { account, token }
 }
