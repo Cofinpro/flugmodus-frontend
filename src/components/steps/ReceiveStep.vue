@@ -1,26 +1,65 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import QRCode from 'qrcode'
+import QrCameraScanner from '../QrCameraScanner.vue'
+import { verifyPaymentProof, type PaymentProof } from '../../services/spend'
+import { recordPendingReceive } from '../../services/wallet'
+import { bytesToHex, randomBytes } from '../../services/crypto'
 import type { Account } from '../../models/Account'
-import type { Rfp } from '../../models/Rfp'
+import type { PaymentRequest } from '../../models/PaymentRequest'
 
 const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ back: [] }>()
 
 const amount = ref<number>(10)
-const rfp = ref<Rfp | null>(null)
+const request = ref<PaymentRequest | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
 
-async function generate() {
-  const created: Rfp = {
-    amount: amount.value,
-    pairReq: [],
+const parseError = ref('')
+const verifyError = ref('')
+const accepted = ref(false)
+const verifying = ref(false)
+
+async function createRequest() {
+  const created: PaymentRequest = {
     walletIdPaid: props.account.walletId,
+    nonce: bytesToHex(randomBytes(16)),
+    amount: amount.value,
   }
-  rfp.value = created
+  request.value = created
+  accepted.value = false
+  verifyError.value = ''
 
   if (canvas.value) {
     await QRCode.toCanvas(canvas.value, JSON.stringify(created), { width: 280 })
+  }
+}
+
+async function onDecode(text: string) {
+  if (!request.value || verifying.value) return
+
+  parseError.value = ''
+  verifyError.value = ''
+
+  let proof: PaymentProof
+  try {
+    proof = JSON.parse(text) as PaymentProof
+  } catch {
+    parseError.value = 'Kein gültiger Zahlungsbeweis in diesem QR-Code gefunden.'
+    return
+  }
+
+  verifying.value = true
+  try {
+    const result = await verifyPaymentProof(proof, request.value, props.account.bankPublicKey, props.account.bankExponent)
+    if (result.valid) {
+      recordPendingReceive(request.value.walletIdPaid, request.value.nonce, result.amount)
+      accepted.value = true
+    } else {
+      verifyError.value = result.reason ?? 'Zahlung ungültig.'
+    }
+  } finally {
+    verifying.value = false
   }
 }
 </script>
@@ -32,15 +71,24 @@ async function generate() {
     <h2>Zahlungsanfrage erstellen</h2>
 
     <div class="field-row">
-      <input type="number" v-model.number="amount" min="0" />
+      <input type="number" v-model.number="amount" min="1" />
       <span>€</span>
-      <button class="btn btn--ghost" style="width: auto" @click="generate">Erstellen</button>
+      <button class="btn btn--ghost" style="width: auto" @click="createRequest">Erstellen</button>
     </div>
 
-    <div v-show="rfp" class="fm-qr qr-canvas">
-      <canvas ref="canvas"></canvas>
-    </div>
-    <p v-if="rfp" class="step__success">Lass das andere Gerät diesen Code scannen.</p>
+    <template v-if="request">
+      <canvas ref="canvas" class="qr-canvas"></canvas>
+      <p class="step__hint">Lass den Käufer diesen Code scannen, dann scanne seinen Beweis-Code.</p>
+
+      <QrCameraScanner @decode="onDecode" />
+
+      <p v-if="verifying" class="step__hint">Prüfe Zahlungsbeweis…</p>
+      <p v-if="parseError" class="step__error">{{ parseError }}</p>
+      <p v-if="verifyError" class="step__error">{{ verifyError }}</p>
+      <p v-if="accepted" class="step__success">
+        Zahlung über {{ request.amount }} € angenommen und für den Sync vorgemerkt.
+      </p>
+    </template>
   </section>
 </template>
 

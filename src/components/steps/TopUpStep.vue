@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { issueFinish, issueStart, type IssueFinishResult, type IssueSession } from '../../services/issue'
+import { issueFinish, issueStart, type IssueSession } from '../../services/issue'
+import type { Coin } from '../../services/wallet'
 import type { Account } from '../../models/Account'
 
 const COIN_VALUE = 1
@@ -12,7 +13,7 @@ const issueSession = ref<IssueSession | null>(null)
 const issueError = ref('')
 const issuing = ref(false)
 
-const finishResult = ref<IssueFinishResult | null>(null)
+const finishResult = ref<Coin | null>(null)
 const finishError = ref('')
 const finishing = ref(false)
 
@@ -69,7 +70,7 @@ async function finish() {
       </button>
       <p v-if="finishError" class="step__error">{{ finishError }}</p>
       <p v-if="finishResult" class="step__success">
-        Aufgeladen! Signature {{ finishResult.blindSignature.slice(0, 20) }}…
+        Aufgeladen! Münze mit Signature {{ finishResult.signature.toString(16).slice(0, 20) }}… im Wallet.
       </p>
     </template>
   </section>
