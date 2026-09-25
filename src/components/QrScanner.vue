@@ -123,5 +123,5 @@ onBeforeUnmount(() => {
   border: 2px solid red;
   color: red;
   font-weight: bold;
-
+}
 </style>

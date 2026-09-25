@@ -1,4 +1,5 @@
 import type { Account } from '../models/Account'
+import type { Account } from '../models/Account'
 import { backendUrl } from './backend'
 
 interface AccountApiResponse {
@@ -29,6 +30,20 @@ export async function createAccount(username: string): Promise<Account> {
   if (!backendUrl.value) {
     throw new Error('Backend-URL ist nicht konfiguriert. Bitte zuerst den QR-Code der Backend-URL scannen.')
   }
+
+  const response = await fetch(`${backendUrl.value}/accounts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Konto konnte nicht erstellt werden (HTTP ${response.status})`)
+  }
+
+  const data: AccountApiResponse = await response.json()
+  return mapAccount(data)
+}
 
   const response = await fetch(`${backendUrl.value}/accounts`, {
     method: 'POST',

@@ -41,6 +41,7 @@ export interface CoinReveal {
 export interface PaymentProof {
   walletIdPaid: string
   nonce: string
+  amount: number
   coins: CoinReveal[]
 }
 
@@ -78,7 +79,7 @@ export async function buildPaymentProof(
 ): Promise<PaymentProof> {
   const identity = hexToBytes(accountUHex)
   const coins = await Promise.all(coinsToSpend.map((coin) => revealCoin(coin, identity, request)))
-  return { walletIdPaid: request.walletIdPaid, nonce: request.nonce, coins }
+
 }
 
 export interface VerifyResult {
@@ -93,8 +94,12 @@ export async function verifyPaymentProof(
   bankPublicKeyHex: string,
   bankExponent: number,
 ): Promise<VerifyResult> {
-  if (proof.walletIdPaid !== request.walletIdPaid || proof.nonce !== request.nonce) {
-    return { valid: false, amount: 0, reason: 'Wallet-ID/Nonce stimmen nicht mit der Anfrage überein.' }
+  if (
+    proof.walletIdPaid !== request.walletIdPaid ||
+    proof.nonce !== request.nonce ||
+    proof.amount !== request.amount
+  ) {
+    return { valid: false, amount: 0, reason: 'Wallet-ID/Nonce/Betrag stimmen nicht mit der Anfrage überein.' }
   }
 
   const modulus = BigInt(`0x${bankPublicKeyHex}`)
