@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { Account } from './models/Account'
 import { resetWallet } from './services/wallet'
+import { isHttpUrl, setBackendUrl } from './services/backend'
 import BackendUrlStep from './components/steps/BackendUrlStep.vue'
 import AccountStep from './components/steps/AccountStep.vue'
 import MenuStep from './components/steps/MenuStep.vue'
@@ -11,7 +12,19 @@ import PayStep from './components/steps/PayStep.vue'
 
 type Step = 'backend' | 'account' | 'menu' | 'topup' | 'receive' | 'pay'
 
-const step = ref<Step>('backend')
+// Registrieren über den QR-Code der Landing Page: <App>/signup?backend=<Backend-Adresse>
+// Dann ist die Bank schon bekannt, und es geht direkt zur Kontoerstellung mit Selfie.
+function readSignupLink(): boolean {
+  if (!location.pathname.replace(/\/+$/, '').endsWith('/signup')) return false
+  const backend = new URLSearchParams(location.search).get('backend')
+  history.replaceState(null, '', import.meta.env.BASE_URL) // Adresse aufräumen, ein Neuladen startet normal
+  if (!backend || !isHttpUrl(backend)) return false
+  setBackendUrl(backend)
+  return true
+}
+const signup = readSignupLink()
+
+const step = ref<Step>(signup ? 'account' : 'backend')
 const account = ref<Account | null>(null)
 
 function onAccountCreated(created: Account) {
@@ -44,7 +57,7 @@ function onTopUp(coinValue: number) {
 
     <main class="app-main">
       <BackendUrlStep v-if="step === 'backend'" @next="step = 'account'" />
-      <AccountStep v-else-if="step === 'account'" @created="onAccountCreated" />
+      <AccountStep v-else-if="step === 'account'" :with-photo="signup" @created="onAccountCreated" />
       <MenuStep v-else-if="step === 'menu' && account" :account="account" @select="onMenuSelect" @synced="onSynced" />
       <TopUpStep
         v-else-if="step === 'topup' && account"

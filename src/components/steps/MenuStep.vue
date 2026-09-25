@@ -39,7 +39,10 @@ async function sync() {
 <template>
   <section class="step">
     <div class="account-badge card">
-      <p class="step__eyebrow">Willkommen, {{ account.username }}</p>
+      <div class="account-badge__head">
+        <img v-if="account.photo" :src="account.photo" class="account-badge__photo" alt="" />
+        <p class="step__eyebrow">Willkommen, {{ account.username }}</p>
+      </div>
       <div class="account-badge__row">
         <div>
           <p class="step__hint">Online</p>
@@ -81,6 +84,21 @@ async function sync() {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.account-badge__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-badge__photo {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 3px var(--fm-paper), 0 0 0 4.5px var(--fm-ink);
 }
 
 .account-badge__row {

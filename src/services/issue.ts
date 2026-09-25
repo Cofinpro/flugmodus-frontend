@@ -1,4 +1,4 @@
-import { backendUrl } from './backend'
+import { API_HEADERS, backendUrl } from './backend'
 import { addCoin, type Coin } from './wallet'
 import {
   bytesToBigInt,
@@ -75,7 +75,7 @@ export async function issueStart(
 
   const response = await fetch(`${backendUrl.value}/api/issue/start`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: API_HEADERS,
     body: JSON.stringify({
       account_id: accountId,
       coin_value: 1,
@@ -111,7 +111,7 @@ export async function issueFinish(session: IssueSession): Promise<Coin> {
 
   const response = await fetch(`${backendUrl.value}/api/issue/finish`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: API_HEADERS,
     body: JSON.stringify({
       session_id: session.sessionId,
       candidate_openings: candidateOpenings,

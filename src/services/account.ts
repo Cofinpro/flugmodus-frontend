@@ -1,5 +1,5 @@
 import type { Account } from '../models/Account'
-import { backendUrl } from './backend'
+import { API_HEADERS, backendUrl } from './backend'
 import type { ReceivedCoin } from './wallet'
 
 interface AccountApiResponse {
@@ -33,7 +33,7 @@ export async function createAccount(username: string): Promise<Account> {
 
   const response = await fetch(`${backendUrl.value}/accounts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: API_HEADERS,
     body: JSON.stringify({ username }),
   })
 
@@ -68,7 +68,7 @@ const SYNC_ERRORS: Record<string, string> = {
 export async function syncAccount(walletId: string, coins: ReceivedCoin[]): Promise<SyncResult> {
   const response = await fetch(`${backendUrl.value}/api/account/sync`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: API_HEADERS,
     body: JSON.stringify({
       wallet_id: walletId,
       coins: coins.map((coin) => ({
