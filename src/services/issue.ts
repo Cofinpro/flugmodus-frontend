@@ -3,13 +3,6 @@ import { backendUrl } from './backend'
 const NUM_CANDIDATES = 100
 const NUM_PAIRS = 12
 const VALUE_BYTES = 12
-const RSA_PUBLIC_EXPONENT = 65537n
-
-// Öffentlicher RSA-Modulus für coin_value=1, aus flugmodus-backend/keys/keys.json
-// (nur das öffentliche "modulus"-Feld, nie der private Exponent).
-const MODULUS = BigInt(
-  '0xc6e25039b9fa686d28954614b8ab80889b704e716d231105972773768e4c79a2ec25ea4c3af2b14218c8028a6b7e8b4eb184c8a48bf82de2fdced53aaa5b0ee530cbce6c19e2516d0ede85b7ca5bc68a08259f42f64511dc7245d4f09e408fc18daca890d0be16617a6ddc980765b65160b92065aa13b53d1a6b9c7d9ed98943',
-)
 
 function randomBytes(length: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(length))
@@ -97,7 +90,7 @@ interface Candidate {
   blinded: bigint
 }
 
-async function buildCandidate(identity: Uint8Array): Promise<Candidate> {
+async function buildCandidate(identity: Uint8Array, modulus: bigint, exponent: bigint): Promise<Candidate> {
   const masks = Array.from({ length: NUM_PAIRS }, () => randomBytes(VALUE_BYTES))
   const leftSalts = Array.from({ length: NUM_PAIRS }, () => randomBytes(VALUE_BYTES))
   const rightSalts = Array.from({ length: NUM_PAIRS }, () => randomBytes(VALUE_BYTES))
@@ -111,10 +104,10 @@ async function buildCandidate(identity: Uint8Array): Promise<Candidate> {
 
   let blindingFactor: bigint
   do {
-    blindingFactor = randomBigIntBelow(MODULUS)
-  } while (gcd(blindingFactor, MODULUS) !== 1n)
+    blindingFactor = randomBigIntBelow(modulus)
+  } while (gcd(blindingFactor, modulus) !== 1n)
 
-  const blinded = (coinId * modPow(blindingFactor, RSA_PUBLIC_EXPONENT, MODULUS)) % MODULUS
+  const blinded = (coinId * modPow(blindingFactor, exponent, modulus)) % modulus
 
   return { masks, leftSalts, rightSalts, blindingFactor, blinded }
 }
@@ -125,10 +118,23 @@ export interface IssueSession {
   candidates: Candidate[]
 }
 
-export async function issueStart(accountId: string, accountUHex: string): Promise<IssueSession> {
+export async function issueStart(
+  accountId: string,
+  accountUHex: string,
+  bankPublicKeyHex: string,
+  bankExponent: number,
+): Promise<IssueSession> {
+  if (!bankPublicKeyHex || !bankExponent) {
+    throw new Error(
+      'Öffentlicher Bank-Schlüssel fehlt in der Konto-Antwort (bank_public_key/bank_exponent). Backend noch nicht aktuell?',
+    )
+  }
+
+  const modulus = BigInt(`0x${bankPublicKeyHex}`)
+  const exponent = BigInt(bankExponent)
   const identity = hexToBytes(accountUHex)
   const candidates = await Promise.all(
-    Array.from({ length: NUM_CANDIDATES }, () => buildCandidate(identity)),
+    Array.from({ length: NUM_CANDIDATES }, () => buildCandidate(identity, modulus, exponent)),
   )
 
   const response = await fetch(`${backendUrl.value}/api/issue/start`, {

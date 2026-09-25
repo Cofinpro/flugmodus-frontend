@@ -5,4 +5,6 @@ export interface Account {
   walletId: string
   balance: number
   createdAt: string
+  bankPublicKey: string
+  bankExponent: number
 }
