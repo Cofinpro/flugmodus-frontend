@@ -14,8 +14,10 @@ import type { PaymentRequest } from '../../models/PaymentRequest'
 const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ back: [] }>()
 
-// Mehr Münzen passen nicht in den Zahlungs-QR des Käufers (Playbook: max. 2 Münzen pro Zahlung)
-const MAX_PER_PAYMENT = 2
+// Kein festes Limit mehr. Ab mehr als 5 Münzen passt der Zahlungs-QR des Käufers in keinen QR-Code
+// (5 € = Version 40, die größte), und schon vorher wird er schwer scannbar – daher nur ein Hinweis.
+const WARN_ABOVE = 5
+const MAX_DIGITS_AMOUNT = 999 // begrenzt nur die Eingabe (3 Stellen wie im Numpad)
 
 const amount = ref(0)
 const request = ref<PaymentRequest | null>(null)
@@ -125,10 +127,14 @@ function goHome() {
       <StepNav eyebrow="Bezahlt werden" title="Geld anfordern" @back="emit('back')" />
       <AmountPad
         v-model="amount"
-        :max="MAX_PER_PAYMENT"
-        :hint="`Höchstens ${MAX_PER_PAYMENT} € pro Zahlung · 1 Münze = 1 €`"
-        :limit-text="`Mehr als ${MAX_PER_PAYMENT} € passen nicht in eine Zahlung.`"
+        :max="MAX_DIGITS_AMOUNT"
+        hint="1 Münze = 1 €"
+        limit-text="Höchstens 999 €."
       />
+      <p v-if="amount > WARN_ABOVE" class="step__error">
+        Achtung: Mehr als {{ WARN_ABOVE }} € passen nicht in einen Zahlungs-QR des Käufers – die Zahlung wird
+        wahrscheinlich nicht klappen.
+      </p>
       <button class="btn btn--primary" :disabled="amount === 0" @click="createRequest">Anfordern</button>
     </template>
 
