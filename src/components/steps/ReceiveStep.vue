@@ -80,7 +80,7 @@ async function onDecode(text: string) {
   try {
     const result = await verifyPaymentProof(proof, request.value, props.account.bankPublicKey, props.account.bankExponent)
     if (result.valid) {
-      recordPendingReceive(request.value.walletIdPaid, request.value.nonce, result.amount)
+      recordPendingReceive(request.value.walletIdPaid, request.value.nonce, result.amount, result.coins ?? [])
       accepted.value = true
       await nextTick()
       successDialog.value?.showModal()

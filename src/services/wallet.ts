@@ -9,10 +9,18 @@ export interface Coin {
   rightSalts: Uint8Array[]
 }
 
+// Beim Verkaufen erhaltene Münze, so wie sie beim Sync der Bank vorgelegt wird.
+export interface ReceivedCoin {
+  coinId: string // hex, SHA-256 über die Paar-Hashes
+  value: number
+  signature: string // hex
+}
+
 export interface PendingTransaction {
   walletIdPaid: string
   nonce: string
   amount: number
+  coins: ReceivedCoin[]
   receivedAt: string
 }
 
@@ -62,6 +70,10 @@ export function removeCoins(spent: Coin[]) {
   spentCoins.value.push(...spent)
 }
 
-export function recordPendingReceive(walletIdPaid: string, nonce: string, amount: number) {
-  pendingTransactions.value.push({ walletIdPaid, nonce, amount, receivedAt: new Date().toISOString() })
+export function recordPendingReceive(walletIdPaid: string, nonce: string, amount: number, received: ReceivedCoin[]) {
+  pendingTransactions.value.push({ walletIdPaid, nonce, amount, coins: received, receivedAt: new Date().toISOString() })
+}
+
+export function clearPendingTransactions() {
+  pendingTransactions.value = []
 }

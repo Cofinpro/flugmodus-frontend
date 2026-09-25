@@ -1,9 +1,39 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { Account } from '../../models/Account'
-import { offlineBalance, pendingBalance } from '../../services/wallet'
+import { syncAccount } from '../../services/account'
+import {
+  clearPendingTransactions,
+  offlineBalance,
+  pendingBalance,
+  pendingTransactions,
+} from '../../services/wallet'
 
-defineProps<{ account: Account }>()
-const emit = defineEmits<{ select: ['topup' | 'receive' | 'pay'] }>()
+const props = defineProps<{ account: Account }>()
+const emit = defineEmits<{ select: ['topup' | 'receive' | 'pay']; synced: [number] }>()
+
+const syncing = ref(false)
+const syncError = ref('')
+const syncMessage = ref('')
+
+async function sync() {
+  const received = pendingTransactions.value.flatMap((tx) => tx.coins)
+  if (received.length === 0) return
+
+  syncing.value = true
+  syncError.value = ''
+  syncMessage.value = ''
+  try {
+    const result = await syncAccount(props.account.walletId, received)
+    clearPendingTransactions()
+    emit('synced', result.balance)
+    syncMessage.value = `${result.credited} € gutgeschrieben.`
+  } catch (e) {
+    syncError.value = (e as Error).message
+  } finally {
+    syncing.value = false
+  }
+}
 </script>
 
 <template>
@@ -22,6 +52,11 @@ const emit = defineEmits<{ select: ['topup' | 'receive' | 'pay'] }>()
       </div>
       <p v-if="pendingBalance > 0" class="step__hint">Ausstehend: {{ pendingBalance }} € (wartet auf Sync)</p>
       <p class="step__hint">Wallet {{ account.walletId.slice(0, 10) }}…</p>
+      <button v-if="pendingBalance > 0" class="btn btn--primary" :disabled="syncing" @click="sync">
+        {{ syncing ? 'Synchronisiere…' : `${pendingBalance} € synchronisieren` }}
+      </button>
+      <p v-if="syncMessage" class="step__success">{{ syncMessage }}</p>
+      <p v-if="syncError" class="step__error">{{ syncError }}</p>
     </div>
 
     <div class="menu-grid">

@@ -24,6 +24,11 @@ function onMenuSelect(target: 'topup' | 'receive' | 'pay') {
   step.value = target
 }
 
+function onSynced(balance: number) {
+  if (!account.value) return
+  account.value.balance = balance
+}
+
 function onTopUp(coinValue: number) {
   if (!account.value) return
   account.value.balance -= coinValue
@@ -40,7 +45,7 @@ function onTopUp(coinValue: number) {
     <main class="app-main">
       <BackendUrlStep v-if="step === 'backend'" @next="step = 'account'" />
       <AccountStep v-else-if="step === 'account'" @created="onAccountCreated" />
-      <MenuStep v-else-if="step === 'menu' && account" :account="account" @select="onMenuSelect" />
+      <MenuStep v-else-if="step === 'menu' && account" :account="account" @select="onMenuSelect" @synced="onSynced" />
       <TopUpStep
         v-else-if="step === 'topup' && account"
         :account="account"

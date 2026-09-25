@@ -8,7 +8,7 @@ import {
   shortHash,
   xorBytes,
 } from './crypto'
-import type { Coin } from './wallet'
+import type { Coin, ReceivedCoin } from './wallet'
 import type { PaymentRequest } from '../models/PaymentRequest'
 
 const NUM_PAIRS = 12
@@ -86,6 +86,7 @@ export interface VerifyResult {
   valid: boolean
   amount: number
   reason?: string
+  coins?: ReceivedCoin[]
 }
 
 export async function verifyPaymentProof(
@@ -106,6 +107,7 @@ export async function verifyPaymentProof(
   const exponent = BigInt(bankExponent)
 
   let total = 0
+  const received: ReceivedCoin[] = []
   for (const coinReveal of proof.coins) {
     if (coinReveal.pairs.length !== NUM_PAIRS) {
       return { valid: false, amount: 0, reason: 'Ungültige Anzahl offengelegter Paare.' }
@@ -142,6 +144,7 @@ export async function verifyPaymentProof(
     }
 
     total += coinReveal.value
+    received.push({ coinId: bytesToHex(coinIdBytes), value: coinReveal.value, signature: coinReveal.signature })
   }
 
   if (total !== request.amount) {
@@ -152,7 +155,7 @@ export async function verifyPaymentProof(
     }
   }
 
-  return { valid: true, amount: total }
+  return { valid: true, amount: total, coins: received }
 }
 
 // ---------- Kompaktes QR-Format für Zahlungsbeweise ----------

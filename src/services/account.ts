@@ -1,5 +1,6 @@
 import type { Account } from '../models/Account'
 import { backendUrl } from './backend'
+import type { ReceivedCoin } from './wallet'
 
 interface AccountApiResponse {
   account_id: string
@@ -42,4 +43,51 @@ export async function createAccount(username: string): Promise<Account> {
 
   const data: AccountApiResponse = await response.json()
   return mapAccount(data)
+}
+
+interface SyncApiResponse {
+  account_id: string
+  credited: number
+  balance: number
+}
+
+export interface SyncResult {
+  credited: number
+  balance: number
+}
+
+const SYNC_ERRORS: Record<string, string> = {
+  unknown_wallet_id: 'Die Wallet ist der Bank nicht bekannt.',
+  no_coins: 'Keine Münzen zum Synchronisieren vorhanden.',
+  duplicate_coin_in_request: 'Eine Münze wurde mehrfach eingereicht.',
+  unknown_coin_value: 'Eine Münze hat einen unbekannten Wert.',
+  invalid_coin: 'Eine Münze hat eine ungültige Signatur.',
+  coin_already_redeemed: 'Eine Münze wurde bereits eingelöst – möglicher Double-Spend.',
+}
+
+export async function syncAccount(walletId: string, coins: ReceivedCoin[]): Promise<SyncResult> {
+  const response = await fetch(`${backendUrl.value}/api/account/sync`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      wallet_id: walletId,
+      coins: coins.map((coin) => ({
+        coin_id: coin.coinId,
+        coin_value: coin.value,
+        signature: coin.signature,
+      })),
+    }),
+  })
+
+  if (!response.ok) {
+    const detail = await response
+      .json()
+      .then((body) => body?.detail)
+      .catch(() => undefined)
+    const message = typeof detail === 'string' ? SYNC_ERRORS[detail] : undefined
+    throw new Error(message ?? `Sync fehlgeschlagen (HTTP ${response.status})`)
+  }
+
+  const data: SyncApiResponse = await response.json()
+  return { credited: data.credited, balance: data.balance }
 }
