@@ -34,7 +34,7 @@ function onTopUp(coinValue: number) {
 <template>
   <div class="app-shell">
     <header class="app-header">
-      <span class="app-header__badge">✈</span>
+      <span class="app-header__badge"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg></span>
       <h1>Flugmodus Bank</h1>
     </header>
 
@@ -56,31 +56,46 @@ function onTopUp(coinValue: number) {
 
 <style scoped>
 .app-shell {
+  /* über dem von sky.js erzeugten Himmel liegen */
+  position: relative;
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 1.5rem 1.25rem 3rem;
+  padding: 24px 16px 48px;
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: 24px;
 }
 
 .app-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
+  color: var(--fm-paper);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .app-header__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
-  box-shadow: var(--shadow-glow);
-  font-size: 1.3rem;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--fm-paper);
+  color: var(--fm-amber-deep);
+  box-shadow: 0 0 0 4px rgb(255 181 71 / 0.18);
+}
+
+.app-header__badge svg {
+  width: 20px;
+  height: 20px;
   transform: rotate(45deg);
 }
 

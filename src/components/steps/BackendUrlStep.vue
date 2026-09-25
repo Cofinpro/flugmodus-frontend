@@ -57,6 +57,18 @@ function onDecode(text: string) {
   display: flex;
 }
 
+/* Text gehört auf Papier, nicht auf den Himmel */
+.manual-url {
+  padding: 12px 12px 12px 18px;
+  border-radius: var(--fm-radius);
+  background: var(--fm-paper-sheen), var(--fm-paper);
+  filter: var(--fm-shadow-ticket);
+}
+
+.manual-url input {
+  font-size: 16px;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .manual-url {
     display: flex;
