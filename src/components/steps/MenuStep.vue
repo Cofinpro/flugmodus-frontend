@@ -89,12 +89,13 @@ async function sync() {
           </svg>
           Konto aufladen
         </button>
-        <button class="btn" :disabled="syncing || pendingBalance === 0" @click="sync">
+        <button class="btn sync-btn" :disabled="syncing || pendingBalance === 0" @click="sync">
           <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M20 12a8 8 0 0 1-14.3 4.9M4 12a8 8 0 0 1 14.3-4.9" />
             <path d="M18.5 3v4.2h-4.2M5.5 21v-4.2h4.2" />
           </svg>
-          {{ syncing ? 'Sync …' : pendingBalance > 0 ? `Sync · ${pendingBalance} €` : 'Sync' }}
+          <span>{{ syncing ? 'Sync …' : 'Sync' }}</span>
+          <span v-if="pendingBalance > 0 && !syncing" class="sync-btn__badge">{{ pendingBalance }} €</span>
         </button>
       </div>
       <p v-if="syncMessage" class="step__success">{{ syncMessage }}</p>
@@ -214,9 +215,30 @@ async function sync() {
 
 .account-badge__actions {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: minmax(0, 1fr) auto; /* Sync so breit wie nötig, Aufladen nimmt den Rest */
   gap: 10px;
   margin-top: 6px;
+}
+
+.account-badge__actions .btn {
+  white-space: nowrap;
+}
+
+/* Sync: Symbol, Wort und Betrag in einer Zeile – der Betrag als kleines Badge */
+.sync-btn {
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.sync-btn__badge {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--fm-amber);
+  color: var(--fm-ink);
+  font: 700 12px/1 var(--fm-sans);
+  letter-spacing: 0;
 }
 
 .action-icon {
