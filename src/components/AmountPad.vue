@@ -54,10 +54,14 @@ function backspace() {
     >
       {{ digit }}
     </button>
-    <button class="numpad__key numpad__key--soft" :disabled="disabled" aria-label="Löschen" @click="clear">C</button>
+    <button class="numpad__key numpad__key--clear" :disabled="disabled" aria-label="Alles löschen" @click="clear">C</button>
     <button class="numpad__key" :disabled="disabled" @click="press(0)">0</button>
-    <button class="numpad__key numpad__key--soft" :disabled="disabled" aria-label="Letzte Ziffer löschen" @click="backspace">
-      ⌫
+    <button class="numpad__key numpad__key--back" :disabled="disabled" aria-label="Letzte Ziffer löschen" @click="backspace">
+      <!-- Löschtaste: Etikett mit Spitze nach links und X, gleiche Linienstärke wie die Ziffern -->
+      <svg viewBox="0 0 28 20" aria-hidden="true">
+        <path d="M9 2 H24 A2 2 0 0 1 26 4 V16 A2 2 0 0 1 24 18 H9 L2 10 Z" />
+        <path d="M13 7 L19 13 M19 7 L13 13" />
+      </svg>
     </button>
   </div>
 </template>
@@ -116,10 +120,39 @@ function backspace() {
   cursor: default;
 }
 
-.numpad__key--soft {
-  border-color: var(--fm-paper-edge);
-  font: 600 18px/1 var(--fm-mono);
-  color: var(--fm-ink-soft);
+/* C (alles löschen) in Rot, ⌫ (letzte Ziffer) in Amber – heben sich von den Ziffern ab */
+.numpad__key--clear,
+.numpad__key--back {
+  --tone: var(--fm-red);
+  border-color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 9%, transparent);
+  color: var(--tone);
+}
+
+.numpad__key--clear {
+  font: 700 22px/1 var(--fm-mono);
+}
+
+.numpad__key--back {
+  --tone: var(--fm-amber-deep);
+  display: grid;
+  place-items: center;
+}
+
+.numpad__key--back svg {
+  width: 30px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.numpad__key--clear:active:not(:disabled),
+.numpad__key--back:active:not(:disabled) {
+  background: var(--tone);
+  color: var(--fm-paper);
 }
 
 /* Handy: Tasten wachsen mit der Bildschirmhöhe, damit Numpad und Knopf auf einen Screen passen */
