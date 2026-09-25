@@ -2,21 +2,30 @@
 import { ref } from 'vue'
 import QRCode from 'qrcode'
 import { createAccount } from '../services/account'
+import { backendUrl } from '../services/backend'
 import type { Account } from '../models/Account'
-import type { Token } from '../models/Token'
 import type { Rfp } from '../models/Rfp'
 
+const username = ref('')
 const account = ref<Account | null>(null)
-const token = ref<Token | null>(null)
+const accountError = ref('')
+const creatingAccount = ref(false)
+
 const amount = ref<number>(10)
 const rfp = ref<Rfp | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
 
-function newAccount() {
-  const created = createAccount()
-  account.value = created.account
-  token.value = created.token
-  rfp.value = null
+async function newAccount() {
+  accountError.value = ''
+  creatingAccount.value = true
+  try {
+    account.value = await createAccount(username.value)
+    rfp.value = null
+  } catch (e) {
+    accountError.value = (e as Error).message
+  } finally {
+    creatingAccount.value = false
+  }
 }
 
 async function generateRfp() {
@@ -38,9 +47,16 @@ async function generateRfp() {
 <template>
   <section>
     <h2>Konto</h2>
-    <button @click="newAccount">Neues Konto erstellen</button>
-    <p v-if="account">Wallet-ID: {{ account.walletId }}</p>
-    <p v-if="token">Signature: {{ token.signature }}</p>
+    <p>Backend: {{ backendUrl || 'nicht konfiguriert – bitte zuerst den QR-Code der Backend-URL scannen' }}</p>
+    <input v-model="username" type="text" placeholder="Benutzername" />
+    <button :disabled="!backendUrl || !username.trim() || creatingAccount" @click="newAccount">
+      {{ creatingAccount ? 'Erstelle…' : 'Neues Konto erstellen' }}
+    </button>
+    <p v-if="accountError">{{ accountError }}</p>
+    <template v-if="account">
+      <p>Wallet-ID: {{ account.walletId }}</p>
+      <p>Kontostand: {{ account.balance }}</p>
+    </template>
 
     <h2>Zahlungsanfrage (RFP)</h2>
     <input type="number" v-model.number="amount" min="0" /> € -
