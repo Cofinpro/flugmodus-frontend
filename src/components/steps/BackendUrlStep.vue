@@ -7,21 +7,27 @@ const emit = defineEmits<{ next: [] }>()
 
 const manualInput = ref(backendUrl.value)
 const error = ref('')
+// Auf dem Handy erscheint das URL-Feld nur, wenn die Kamera nicht startet
+const cameraFailed = ref(false)
 
 function saveManual() {
   if (isHttpUrl(manualInput.value)) {
     setBackendUrl(manualInput.value)
-    error.value = ''
+    emit('next')
   } else {
     error.value = 'Bitte eine gültige http(s)-URL eingeben.'
   }
 }
 
+// Der Scanner meldet denselben Code bei jedem Frame – nur beim ersten Treffer weiter
+let advanced = false
+
 function onDecode(text: string) {
+  if (advanced) return
   if (isHttpUrl(text)) {
+    advanced = true
     setBackendUrl(text)
-    manualInput.value = text
-    error.value = ''
+    emit('next')
   } else {
     error.value = 'Der gescannte QR-Code enthält keine gültige URL.'
   }
@@ -29,21 +35,31 @@ function onDecode(text: string) {
 </script>
 
 <template>
-  <section class="step card">
-    <p class="step__eyebrow">Schritt 1 von 3</p>
-    <h2>Bank-Server verbinden</h2>
-    <p class="step__hint">Scanne den QR-Code der Bank-Adresse oder gib sie manuell ein.</p>
+  <section class="step">
+    <QrCameraScanner auto-start @decode="onDecode" @error="cameraFailed = true" />
 
-    <QrCameraScanner @decode="onDecode" />
-
-    <div class="field-row">
+    <div class="field-row manual-url" :class="{ 'manual-url--forced': cameraFailed }">
       <input v-model="manualInput" type="url" placeholder="https://xxxx.ngrok-free.app" @keyup.enter="saveManual" />
-      <button class="btn btn--ghost" style="width: auto" @click="saveManual">Übernehmen</button>
+      <button class="btn btn--ghost" style="width: auto" @click="saveManual">Weiter</button>
     </div>
 
     <p v-if="error" class="step__error">{{ error }}</p>
-    <p class="step__hint">Aktuell verbunden: {{ backendUrl || 'nicht konfiguriert' }}</p>
-
-    <button class="btn btn--primary" :disabled="!backendUrl" @click="emit('next')">Weiter</button>
   </section>
 </template>
+
+<style scoped>
+/* Handy: nur der Scanner. Desktop (Maus vorhanden) oder Kamera kaputt: URL-Feld dazu */
+.manual-url {
+  display: none;
+}
+
+.manual-url--forced {
+  display: flex;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .manual-url {
+    display: flex;
+  }
+}
+</style>
