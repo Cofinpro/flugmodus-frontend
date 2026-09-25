@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import QRCode from 'qrcode'
+import AmountPad from '../AmountPad.vue'
 import QrCameraScanner from '../QrCameraScanner.vue'
+import StepNav from '../StepNav.vue'
 import { decodeProof, verifyPaymentProof, type PaymentProof } from '../../services/spend'
 import { recordPendingReceive } from '../../services/wallet'
 import { bytesToHex, randomBytes } from '../../services/crypto'
@@ -11,7 +13,10 @@ import type { PaymentRequest } from '../../models/PaymentRequest'
 const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ back: [] }>()
 
-const amount = ref<number>(10)
+// Mehr Münzen passen nicht in den Zahlungs-QR des Käufers (Playbook: max. 2 Münzen pro Zahlung)
+const MAX_PER_PAYMENT = 2
+
+const amount = ref(0)
 const request = ref<PaymentRequest | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
 
@@ -48,6 +53,14 @@ watch(scanning, async (isScanning) => {
   await nextTick()
   if (canvas.value) await QRCode.toCanvas(canvas.value, JSON.stringify(request.value), { width: 280 })
 })
+
+// Zurück vom Anfrage-Screen: Betrag ändern, die alte Anfrage verfällt
+function backToAmount() {
+  request.value = null
+  scanning.value = false
+  parseError.value = ''
+  verifyError.value = ''
+}
 
 function showRequestCode() {
   scanning.value = false
@@ -100,17 +113,21 @@ function goHome() {
 
 <template>
   <section class="step card">
-    <button class="btn btn--ghost btn--back" @click="emit('back')">← Zurück</button>
-    <p class="step__eyebrow">Bezahlt werden</p>
-    <h2>Zahlungsanfrage erstellen</h2>
+    <!-- Schritt 1: Betrag per Numpad -->
+    <template v-if="!request">
+      <StepNav eyebrow="Bezahlt werden" title="Geld anfordern" @back="emit('back')" />
+      <AmountPad
+        v-model="amount"
+        :max="MAX_PER_PAYMENT"
+        :hint="`Höchstens ${MAX_PER_PAYMENT} € pro Zahlung · 1 Münze = 1 €`"
+        :limit-text="`Mehr als ${MAX_PER_PAYMENT} € passen nicht in eine Zahlung.`"
+      />
+      <button class="btn btn--primary" :disabled="amount === 0" @click="createRequest">Anfordern</button>
+    </template>
 
-    <div v-if="!scanning" class="field-row">
-      <input type="number" v-model.number="amount" min="1" />
-      <span>€</span>
-      <button class="btn btn--ghost" style="width: auto" @click="createRequest">Erstellen</button>
-    </div>
-
-    <template v-if="request">
+    <!-- Schritt 2: eigener Code für den Käufer, dann dessen Zahlung scannen -->
+    <template v-else>
+      <StepNav eyebrow="Bezahlt werden" :title="`${request.amount} € anfordern`" @back="backToAmount" />
       <template v-if="!scanning">
         <canvas ref="canvas" class="qr-canvas"></canvas>
         <p class="step__hint">Lass den Käufer diesen Code scannen. Danach scannst du seinen Zahlungs-Code.</p>

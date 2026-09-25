@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import AmountPad from '../AmountPad.vue'
+import StepNav from '../StepNav.vue'
 import { issueFinish, issueStart } from '../../services/issue'
 import type { Account } from '../../models/Account'
 
 const COIN_VALUE = 1
-const MAX_DIGITS = 3
 
 const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ back: []; topup: [number] }>()
 
 const amount = ref(0)
-const limitHint = ref('')
 const dialog = ref<HTMLDialogElement | null>(null)
 const successDialog = ref<HTMLDialogElement | null>(null)
 
@@ -20,26 +20,6 @@ const total = ref(0)
 const error = ref('')
 
 const maxAmount = computed(() => Math.max(0, Math.floor(props.account.balance / COIN_VALUE)))
-
-function press(digit: number) {
-  if (running.value) return
-  const next = amount.value * 10 + digit
-  if (String(next).length > MAX_DIGITS || next > maxAmount.value) {
-    limitHint.value = `Maximal ${maxAmount.value} € verfügbar.`
-    return
-  }
-  limitHint.value = ''
-  amount.value = next
-}
-
-function clear() {
-  amount.value = 0
-  limitHint.value = ''
-}
-
-function backspace() {
-  amount.value = Math.floor(amount.value / 10)
-}
 
 function askConfirm() {
   if (amount.value === 0) return
@@ -87,32 +67,15 @@ async function confirm() {
 
 <template>
   <section class="step card">
-    <button class="btn btn--ghost btn--back" @click="emit('back')">← Zurück</button>
-    <p class="step__eyebrow">Aufladen</p>
-    <h2>Konto aufladen</h2>
+    <StepNav eyebrow="Aufladen" title="Konto aufladen" @back="emit('back')" />
 
-    <div class="topup-display" aria-live="polite">
-      <span class="fm-amount" :class="{ 'topup-display--zero': amount === 0 }">{{ amount }}<small>€</small></span>
-      <p class="step__hint">Verfügbar: {{ maxAmount }} € · 1 Münze = 1 €</p>
-      <p v-if="limitHint" class="topup-limit">{{ limitHint }}</p>
-    </div>
-
-    <div class="numpad" role="group" aria-label="Ziffernblock">
-      <button
-        v-for="digit in [1, 2, 3, 4, 5, 6, 7, 8, 9]"
-        :key="digit"
-        class="numpad__key"
-        :disabled="running"
-        @click="press(digit)"
-      >
-        {{ digit }}
-      </button>
-      <button class="numpad__key numpad__key--soft" :disabled="running" aria-label="Löschen" @click="clear">C</button>
-      <button class="numpad__key" :disabled="running" @click="press(0)">0</button>
-      <button class="numpad__key numpad__key--soft" :disabled="running" aria-label="Letzte Ziffer löschen" @click="backspace">
-        ⌫
-      </button>
-    </div>
+    <AmountPad
+      v-model="amount"
+      :max="maxAmount"
+      :hint="`Verfügbar: ${maxAmount} € · 1 Münze = 1 €`"
+      :limit-text="`Maximal ${maxAmount} € verfügbar.`"
+      :disabled="running"
+    />
 
     <button class="btn btn--primary" :disabled="amount === 0 || running" @click="askConfirm">
       {{ running ? `Münze ${Math.min(done + 1, total)} von ${total} …` : 'Aufladen' }}
@@ -145,65 +108,6 @@ async function confirm() {
 </template>
 
 <style scoped>
-.topup-display {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 8px 0 4px;
-  text-align: center;
-}
-
-.topup-display--zero {
-  color: var(--fm-ink-soft);
-}
-
-.topup-limit {
-  font-size: 14px;
-  color: var(--fm-red);
-}
-
-/* Ziffernblock wie Ticket-Kacheln: Kontur, beim Drücken Tinte */
-.numpad {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.numpad__key {
-  height: 60px;
-  border: var(--fm-line) solid var(--fm-ink);
-  border-radius: var(--fm-radius);
-  background: transparent;
-  color: var(--fm-ink);
-  font: 700 24px/1 var(--fm-sans);
-  letter-spacing: -0.02em;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.numpad__key:active:not(:disabled) {
-  background: var(--fm-ink);
-  color: var(--fm-amber);
-  transform: translateY(1px);
-}
-
-.numpad__key:focus-visible {
-  outline: 3px solid var(--fm-amber);
-  outline-offset: 2px;
-}
-
-.numpad__key:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.numpad__key--soft {
-  border-color: var(--fm-paper-edge);
-  font: 600 18px/1 var(--fm-mono);
-  color: var(--fm-ink-soft);
-}
-
 .topup-progress {
   height: 6px;
   overflow: hidden;
@@ -216,17 +120,6 @@ async function confirm() {
   height: 100%;
   background: var(--fm-amber-deep);
   transition: width 0.3s ease;
-}
-
-/* Handy: Tasten wachsen mit der Bildschirmhöhe, damit Numpad und Aufladen-Taste auf einen Screen passen */
-@media (hover: none) and (pointer: coarse) {
-  .numpad {
-    gap: 8px;
-  }
-
-  .numpad__key {
-    height: clamp(44px, 7dvh, 60px);
-  }
 }
 
 /* Modal: Papier aus fm-skin, Ja grün, Abbrechen grau */
