@@ -79,7 +79,7 @@ export async function buildPaymentProof(
 ): Promise<PaymentProof> {
   const identity = hexToBytes(accountUHex)
   const coins = await Promise.all(coinsToSpend.map((coin) => revealCoin(coin, identity, request)))
-  return { walletIdPaid: request.walletIdPaid, nonce: request.nonce, amount: request.amount, coins }
+
 }
 
 export interface VerifyResult {
