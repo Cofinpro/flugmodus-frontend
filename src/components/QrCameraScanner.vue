@@ -50,7 +50,9 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="qr-camera">
-    <video ref="videoRef" class="qr-camera__preview"></video>
+    <div class="qr-camera__frame">
+      <video ref="videoRef" class="qr-camera__preview"></video>
+    </div>
     <template v-if="!autoStart || error">
       <button class="btn btn--ghost" v-if="!scanning" @click="start">Kamera starten</button>
       <button class="btn btn--ghost" v-else @click="stop">Kamera stoppen</button>
@@ -63,14 +65,49 @@ onBeforeUnmount(() => {
 .qr-camera {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 14px;
+}
+
+/* wie .fm-qr: weißer Rahmen, Tintenlinie, Amber-Ecken */
+.qr-camera__frame {
+  position: relative;
+  padding: 10px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: inset 0 0 0 var(--fm-line) var(--fm-ink), 0 30px 60px rgb(0 0 0 / 0.45);
+}
+
+.qr-camera__frame::before,
+.qr-camera__frame::after {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--fm-amber-deep);
+}
+
+.qr-camera__frame::before {
+  top: -9px;
+  left: -9px;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 12px 0 0 0;
+}
+
+.qr-camera__frame::after {
+  right: -9px;
+  bottom: -9px;
+  border-left: 0;
+  border-top: 0;
+  border-radius: 0 0 12px 0;
 }
 
 .qr-camera__preview {
+  display: block;
   width: 100%;
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--fm-ink);
   aspect-ratio: 1 / 1;
   object-fit: cover;
 }

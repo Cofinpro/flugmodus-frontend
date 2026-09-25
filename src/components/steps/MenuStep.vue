@@ -45,59 +45,80 @@ const emit = defineEmits<{ select: ['topup' | 'receive' | 'pay'] }>()
 .account-badge {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .account-badge__row {
   display: flex;
-  gap: 2rem;
+  gap: 32px;
+  margin: 10px 0 6px;
+  padding-top: 18px;
+  border-top: var(--fm-line) solid var(--fm-ink);
+}
+
+/* Label über dem Betrag wie ein Ticketfeld */
+.account-badge__row .step__hint {
+  font-family: var(--fm-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .account-badge__balance {
-  font-size: 1.8rem;
+  margin-top: 6px;
+  font-size: 44px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
 }
 
 .menu-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 12px;
 }
 
 .menu-tile {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  font: inherit;
-  font-weight: 600;
-  font-size: 1.05rem;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius);
-  padding: 1.25rem 1.5rem;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 0;
+  border-radius: var(--fm-radius);
+  background: var(--fm-paper-sheen), var(--fm-paper);
+  color: var(--fm-ink);
+  font: 600 17px/1.2 var(--fm-sans);
+  letter-spacing: -0.01em;
+  text-align: left;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  filter: drop-shadow(0 14px 30px rgb(0 0 0 / 0.45));
+  transition: transform 0.15s ease;
 }
 
 .menu-tile:hover {
-  background: var(--surface-strong);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-glow);
+  transform: translateY(-2px);
+}
+
+.menu-tile:active {
+  transform: translateY(1px);
+}
+
+.menu-tile:focus-visible {
+  outline: 3px solid var(--fm-amber);
+  outline-offset: 3px;
 }
 
 .menu-tile__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
-  color: #04121f;
-  font-size: 1.3rem;
-  font-weight: 700;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--fm-ink);
+  color: var(--fm-amber);
+  font-size: 20px;
+  font-weight: 700;
 }
 </style>

@@ -37,7 +37,9 @@ async function generate() {
       <button class="btn btn--ghost" style="width: auto" @click="generate">Erstellen</button>
     </div>
 
-    <canvas ref="canvas" class="qr-canvas"></canvas>
+    <div v-show="rfp" class="fm-qr qr-canvas">
+      <canvas ref="canvas"></canvas>
+    </div>
     <p v-if="rfp" class="step__success">Lass das andere Gerät diesen Code scannen.</p>
   </section>
 </template>
@@ -45,7 +47,6 @@ async function generate() {
 <style scoped>
 .qr-canvas {
   align-self: center;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  margin: 12px 0;
 }
 </style>
