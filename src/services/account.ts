@@ -26,7 +26,7 @@ function mapAccount(data: AccountApiResponse): Account {
   }
 }
 
-export async function createAccount(username: string): Promise<Account> {
+export async function createAccount(username: string, photo?: string): Promise<Account> {
   if (!backendUrl.value) {
     throw new Error('Backend-URL ist nicht konfiguriert. Bitte zuerst den QR-Code der Backend-URL scannen.')
   }
@@ -34,7 +34,7 @@ export async function createAccount(username: string): Promise<Account> {
   const response = await fetch(`${backendUrl.value}/accounts`, {
     method: 'POST',
     headers: API_HEADERS,
-    body: JSON.stringify({ username }),
+    body: JSON.stringify(photo ? { username, photo } : { username }),
   })
 
   if (!response.ok) {

@@ -25,7 +25,7 @@ async function create() {
   error.value = ''
   creating.value = true
   try {
-    const account = await createAccount(username.value.trim())
+    const account = await createAccount(username.value.trim(), photo.value || undefined)
     emit('created', photo.value ? { ...account, photo: photo.value } : account)
   } catch (e) {
     error.value = (e as Error).message

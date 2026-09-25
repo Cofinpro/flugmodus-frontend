@@ -97,8 +97,45 @@ async function confirmPayment() {
 // Kryptografisch gültig – nur beim späteren Sync-Vergleich fliegt es auf, weil für die
 // beiden unterschiedlichen Challenges je Paar unterschiedliche Hälften offengelegt werden
 // und sich u daraus per XOR rekonstruieren lässt.
+// „Muehuehue“: ein kurzes, hämisches Glucksen per Web Audio – keine Audiodatei, kein Netz
+function playMuehuehue() {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const now = ctx.currentTime
+    // vier absteigende „hue“-Silben mit Vibrato – klingt nach fiesem Kichern
+    ;[0, 0.16, 0.32, 0.48].forEach((offset, i) => {
+      const t = now + offset
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      const vib = ctx.createOscillator()
+      const vibGain = ctx.createGain()
+      osc.type = 'sawtooth'
+      const base = 300 - i * 28 // jede Silbe etwas tiefer
+      osc.frequency.setValueAtTime(base * 1.25, t)
+      osc.frequency.exponentialRampToValueAtTime(base, t + 0.12)
+      vib.frequency.value = 22
+      vibGain.gain.value = 12
+      vib.connect(vibGain).connect(osc.frequency)
+      gain.gain.setValueAtTime(0.0001, t)
+      gain.gain.exponentialRampToValueAtTime(0.16, t + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.14)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(t)
+      vib.start(t)
+      osc.stop(t + 0.16)
+      vib.stop(t + 0.16)
+    })
+    setTimeout(() => ctx.close(), 900)
+  } catch {
+    // Ton ist Beiwerk – schlägt er fehl, läuft der Rest normal weiter
+  }
+}
+
 async function fraudPay() {
   if (!request.value || paying.value) return
+  playMuehuehue()
 
   const coinsToReuse = selectCoins(request.value.amount, spentCoins.value)
   if (!coinsToReuse) {
