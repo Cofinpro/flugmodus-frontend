@@ -2,6 +2,7 @@
 import { onBeforeUnmount, ref } from 'vue'
 import QrScanner from 'qr-scanner'
 import QrScannerWorkerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
+import { backendUrl, isHttpUrl, setBackendUrl } from '../services/backend'
 import { createAccount } from '../services/account'
 import { pay } from '../services/payment'
 import type { Account } from '../models/Account'
@@ -58,7 +59,11 @@ async function start() {
   scanner = new QrScanner(
     videoRef.value,
     (r) => {
+      result.value = r.data
       handleResult(r.data)
+      if (isHttpUrl(r.data)) {
+        setBackendUrl(r.data)
+      }
     },
     { highlightScanRegion: true, highlightCodeOutline: true },
   )
@@ -98,6 +103,7 @@ onBeforeUnmount(() => {
     </div>
     <p v-if="error">{{ error }}</p>
     <p v-else>Ergebnis: {{ result || '–' }}</p>
+    <p>Backend-URL: {{ backendUrl || 'nicht konfiguriert' }}</p>
 
     <h2>Bezahlen</h2>
     <button :disabled="!token || token.spent || !scannedRfp" @click="doPay">Bezahlen</button>

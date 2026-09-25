@@ -1,15 +1,41 @@
 import type { Account } from '../models/Account'
-import type { Token } from '../models/Token'
+import { backendUrl } from './backend'
 
-function randomHex(byteLength: number): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(byteLength)))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
+interface AccountApiResponse {
+  account_id: string
+  username: string
+  u: string
+  wallet_id: string
+  balance: number
+  created_at: string
 }
 
-export function createAccount(): { account: Account; token: Token } {
-  const walletId = randomHex(8)
-  const account: Account = { walletId, u: randomHex(4) }
-  const token: Token = { walletId, signature: randomHex(32), spent: false }
-  return { account, token }
+function mapAccount(data: AccountApiResponse): Account {
+  return {
+    accountId: data.account_id,
+    username: data.username,
+    u: data.u,
+    walletId: data.wallet_id,
+    balance: data.balance,
+    createdAt: data.created_at,
+  }
+}
+
+export async function createAccount(username: string): Promise<Account> {
+  if (!backendUrl.value) {
+    throw new Error('Backend-URL ist nicht konfiguriert. Bitte zuerst den QR-Code der Backend-URL scannen.')
+  }
+
+  const response = await fetch(`${backendUrl.value}/accounts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Konto konnte nicht erstellt werden (HTTP ${response.status})`)
+  }
+
+  const data: AccountApiResponse = await response.json()
+  return mapAccount(data)
 }

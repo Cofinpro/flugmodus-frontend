@@ -1,4 +1,8 @@
 export interface Account {
-  walletId: string
+  accountId: string
+  username: string
   u: string
+  walletId: string
+  balance: number
+  createdAt: string
 }
