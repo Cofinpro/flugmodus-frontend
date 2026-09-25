@@ -1,30 +1,52 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import QRCode from 'qrcode'
 import QrCameraScanner from '../QrCameraScanner.vue'
-import { applyPayment, offlineBalance } from '../../services/wallet'
-import type { Rfp } from '../../models/Rfp'
+import { buildPaymentProof } from '../../services/spend'
+import { offlineBalance, removeCoins, selectCoins } from '../../services/wallet'
+import type { Account } from '../../models/Account'
+import type { PaymentRequest } from '../../models/PaymentRequest'
 
+const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ back: [] }>()
 
-const rfp = ref<Rfp | null>(null)
+const request = ref<PaymentRequest | null>(null)
 const parseError = ref('')
+const paying = ref(false)
 const paid = ref(false)
+const canvas = ref<HTMLCanvasElement | null>(null)
 
 function onDecode(text: string) {
   try {
-    rfp.value = JSON.parse(text) as Rfp
+    request.value = JSON.parse(text) as PaymentRequest
     parseError.value = ''
     paid.value = false
   } catch {
-    rfp.value = null
-    parseError.value = 'Kein gültiges RFP in diesem QR-Code gefunden.'
+    request.value = null
+    parseError.value = 'Keine gültige Zahlungsanfrage in diesem QR-Code gefunden.'
   }
 }
 
-function confirmPayment() {
-  if (!rfp.value || paid.value || rfp.value.amount > offlineBalance.value) return
-  applyPayment(rfp.value.amount)
-  paid.value = true
+async function confirmPayment() {
+  if (!request.value || paying.value || paid.value) return
+
+  const coinsToSpend = selectCoins(request.value.amount)
+  if (!coinsToSpend) {
+    parseError.value = 'Nicht genug passende Münzen im Offline-Guthaben.'
+    return
+  }
+
+  paying.value = true
+  try {
+    const proof = await buildPaymentProof(coinsToSpend, props.account.u, request.value)
+    removeCoins(coinsToSpend)
+    if (canvas.value) {
+      await QRCode.toCanvas(canvas.value, JSON.stringify(proof), { width: 280 })
+    }
+    paid.value = true
+  } finally {
+    paying.value = false
+  }
 }
 </script>
 
@@ -38,14 +60,26 @@ function confirmPayment() {
     <QrCameraScanner @decode="onDecode" />
 
     <p v-if="parseError" class="step__error">{{ parseError }}</p>
-    <template v-if="rfp">
-      <p class="step__hint">Betrag: {{ rfp.amount }} € · An Wallet {{ rfp.walletIdPaid.slice(0, 10) }}…</p>
+    <template v-if="request">
+      <p class="step__hint">Betrag: {{ request.amount }} € · An Wallet {{ request.walletIdPaid.slice(0, 10) }}…</p>
 
-      <p v-if="rfp.amount > offlineBalance" class="step__error">Nicht genug Offline-Guthaben.</p>
-      <button v-else class="btn btn--primary" :disabled="paid" @click="confirmPayment">
-        {{ paid ? 'Bezahlt' : 'Bezahlen bestätigen' }}
+      <button v-if="!paid" class="btn btn--primary" :disabled="paying" @click="confirmPayment">
+        {{ paying ? 'Erzeuge Beweis…' : 'Bezahlen bestätigen' }}
       </button>
-      <p v-if="paid" class="step__success">Bezahlt! Neues Offline-Guthaben: {{ offlineBalance }} €</p>
+
+      <template v-if="paid">
+        <p class="step__success">Bezahlt! Neues Offline-Guthaben: {{ offlineBalance }} €</p>
+        <canvas ref="canvas" class="qr-canvas"></canvas>
+        <p class="step__hint">Zeig diesen Code dem Händler als Zahlungsbeweis.</p>
+      </template>
     </template>
   </section>
 </template>
+
+<style scoped>
+.qr-canvas {
+  align-self: center;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+</style>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Account } from './models/Account'
-import { applyTopUp, resetWallet } from './services/wallet'
+import { resetWallet } from './services/wallet'
 import BackendUrlStep from './components/steps/BackendUrlStep.vue'
 import AccountStep from './components/steps/AccountStep.vue'
 import MenuStep from './components/steps/MenuStep.vue'
@@ -27,7 +27,6 @@ function onMenuSelect(target: 'topup' | 'receive' | 'pay') {
 function onTopUp(coinValue: number) {
   if (!account.value) return
   account.value.balance -= coinValue
-  applyTopUp(coinValue)
 }
 </script>
 
@@ -49,7 +48,7 @@ function onTopUp(coinValue: number) {
         @topup="onTopUp"
       />
       <ReceiveStep v-else-if="step === 'receive' && account" :account="account" @back="step = 'menu'" />
-      <PayStep v-else-if="step === 'pay'" @back="step = 'menu'" />
+      <PayStep v-else-if="step === 'pay' && account" :account="account" @back="step = 'menu'" />
     </main>
   </div>
 </template>
