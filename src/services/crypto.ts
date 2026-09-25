@@ -89,3 +89,18 @@ export function randomBigIntBelow(max: bigint): bigint {
   } while (value <= 1n || value >= max)
   return value
 }
+
+// coin_id = SHA-256(X_0 ‖ Y_0 ‖ … ‖ X_11 ‖ Y_11), X_j = H(mask_j ‖ left_j), Y_j = H((mask_j ⊕ u) ‖ right_j) – 32 rohe Bytes
+export async function computeCoinId(
+  identity: Uint8Array,
+  masks: Uint8Array[],
+  leftSalts: Uint8Array[],
+  rightSalts: Uint8Array[],
+): Promise<Uint8Array> {
+  const pairHashes: Uint8Array[] = []
+  for (let pair = 0; pair < masks.length; pair++) {
+    pairHashes.push(await shortHash(concatBytes([masks[pair], leftSalts[pair]])))
+    pairHashes.push(await shortHash(concatBytes([xorBytes(masks[pair], identity), rightSalts[pair]])))
+  }
+  return sha256(concatBytes(pairHashes))
+}

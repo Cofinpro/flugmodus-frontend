@@ -4,8 +4,9 @@ import QRCode from 'qrcode'
 import AmountPad from '../AmountPad.vue'
 import QrCameraScanner from '../QrCameraScanner.vue'
 import StepNav from '../StepNav.vue'
-import { decodeProof, verifyPaymentProof, type PaymentProof } from '../../services/spend'
-import { recordPendingReceive } from '../../services/wallet'
+import { decodePayment } from '../../services/codec'
+import { verifyPaymentProof, type PaymentProof } from '../../services/spend'
+import { recordPendingReceive, seenCoinIds } from '../../services/wallet'
 import { bytesToHex, randomBytes } from '../../services/crypto'
 import type { Account } from '../../models/Account'
 import type { PaymentRequest } from '../../models/PaymentRequest'
@@ -81,7 +82,7 @@ async function onDecode(text: string) {
 
   let proof: PaymentProof
   try {
-    proof = decodeProof(text)
+    proof = decodePayment(text)
   } catch {
     // Kamera weiterlaufen lassen – vielleicht war nur der falsche Code im Bild
     parseError.value = 'Kein gültiger Zahlungsbeweis in diesem QR-Code gefunden.'
@@ -91,7 +92,13 @@ async function onDecode(text: string) {
   scanning.value = false // Code erkannt: Kamera aus
   verifying.value = true
   try {
-    const result = await verifyPaymentProof(proof, request.value, props.account.bankPublicKey, props.account.bankExponent)
+    const result = await verifyPaymentProof(
+      proof,
+      request.value,
+      props.account.bankPublicKey,
+      props.account.bankExponent,
+      seenCoinIds(),
+    )
     if (result.valid) {
       recordPendingReceive(request.value.walletIdPaid, request.value.nonce, result.amount, result.coins ?? [])
       accepted.value = true

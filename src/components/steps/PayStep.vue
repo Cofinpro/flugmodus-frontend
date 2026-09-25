@@ -2,7 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import QRCode from 'qrcode'
 import QrCameraScanner from '../QrCameraScanner.vue'
-import { buildPaymentProof, encodeProof, type PaymentProof } from '../../services/spend'
+import { encodePayment } from '../../services/codec'
+import { buildPaymentProof, type PaymentProof } from '../../services/spend'
 import { offlineBalance, removeCoins, selectCoins, spentCoins } from '../../services/wallet'
 import type { Account } from '../../models/Account'
 import type { PaymentRequest } from '../../models/PaymentRequest'
@@ -53,8 +54,12 @@ async function showProof(proof: PaymentProof): Promise<boolean> {
   await nextTick()
   try {
     if (!canvas.value) throw new Error('QR-Fläche fehlt')
-    // hohe Auflösung, die Größe am Bildschirm regelt CSS; Stufe L für möglichst grobe Module
-    await QRCode.toCanvas(canvas.value, encodeProof(proof), { errorCorrectionLevel: 'L', margin: 2, width: 1024 })
+    // Base45 im alphanumerischen Modus, Stufe L; hohe Auflösung, die Größe am Bildschirm regelt CSS
+    await QRCode.toCanvas(canvas.value, [{ data: encodePayment(proof), mode: 'alphanumeric' }], {
+      errorCorrectionLevel: 'L',
+      margin: 2,
+      width: 1024,
+    })
     return true
   } catch {
     paid.value = false

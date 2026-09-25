@@ -70,6 +70,11 @@ export function removeCoins(spent: Coin[]) {
   spentCoins.value.push(...spent)
 }
 
+// Alle hier schon angenommenen Münzen – der Empfänger lehnt dieselbe coin_id ein zweites Mal ab
+export function seenCoinIds(): Set<string> {
+  return new Set(pendingTransactions.value.flatMap((tx) => tx.coins.map((coin) => coin.coinId)))
+}
+
 export function recordPendingReceive(walletIdPaid: string, nonce: string, amount: number, received: ReceivedCoin[]) {
   pendingTransactions.value.push({ walletIdPaid, nonce, amount, coins: received, receivedAt: new Date().toISOString() })
 }

@@ -3,7 +3,7 @@ import { addCoin, type Coin } from './wallet'
 import {
   bytesToBigInt,
   bytesToHex,
-  concatBytes,
+  computeCoinId,
   gcd,
   hexToBytes,
   modInverse,
@@ -33,12 +33,7 @@ async function buildCandidate(identity: Uint8Array, modulus: bigint, exponent: b
   const leftSalts = Array.from({ length: NUM_PAIRS }, () => randomBytes(VALUE_BYTES))
   const rightSalts = Array.from({ length: NUM_PAIRS }, () => randomBytes(VALUE_BYTES))
 
-  const pairHashes: Uint8Array[] = []
-  for (let pair = 0; pair < NUM_PAIRS; pair++) {
-    pairHashes.push(await shortHash(concatBytes([masks[pair], leftSalts[pair]])))
-    pairHashes.push(await shortHash(concatBytes([xorBytes(masks[pair], identity), rightSalts[pair]])))
-  }
-  const coinIdBytes = await sha256(concatBytes(pairHashes))
+  const coinIdBytes = await computeCoinId(identity, masks, leftSalts, rightSalts)
   const coinId = bytesToBigInt(coinIdBytes)
 
   let blindingFactor: bigint

@@ -13,8 +13,9 @@ import type { PaymentRequest } from '../models/PaymentRequest'
 
 const NUM_PAIRS = 12
 
-async function challengeBits(coinIdBytes: Uint8Array, walletIdPaid: string, nonceHex: string): Promise<number[]> {
-  const input = concatBytes([coinIdBytes, new TextEncoder().encode(walletIdPaid), hexToBytes(nonceHex)])
+export async function challengeBits(coinIdBytes: Uint8Array, walletIdPaid: string, nonceHex: string): Promise<number[]> {
+  // Spezifikation: c = SHA-256(coin_id (32 B) ‖ empfaenger_id (8 B) ‖ nonce (16 B)), alles rohe Bytes – kein Hex-Text
+  const input = concatBytes([coinIdBytes, hexToBytes(walletIdPaid), hexToBytes(nonceHex)])
   const digest = await sha256(input)
   const bits: number[] = []
   for (let i = 0; i < NUM_PAIRS; i++) {
@@ -26,7 +27,7 @@ async function challengeBits(coinIdBytes: Uint8Array, walletIdPaid: string, nonc
 }
 
 export interface PairReveal {
-  bit: 0 | 1
+  bit?: 0 | 1 // nur intern beim Zahler – wird nicht übertragen und beim Empfänger nie verwendet
   revealed: string // hex, 12 Byte: aⱼ (bit 0) oder aⱼ⊕u (bit 1)
   salt: string // hex, 12 Byte: passendes Salz zur offengelegten Seite
   otherHash: string // hex, 12 Byte: Hash der jeweils NICHT geöffneten Seite
@@ -38,10 +39,8 @@ export interface CoinReveal {
   pairs: PairReveal[]
 }
 
+// Was im Zahlungs-QR steht. empfaenger_id, nonce und Betrag kennt der Empfänger selbst.
 export interface PaymentProof {
-  walletIdPaid: string
-  nonce: string
-  amount: number
   coins: CoinReveal[]
 }
 
@@ -79,7 +78,7 @@ export async function buildPaymentProof(
 ): Promise<PaymentProof> {
   const identity = hexToBytes(accountUHex)
   const coins = await Promise.all(coinsToSpend.map((coin) => revealCoin(coin, identity, request)))
-  return { walletIdPaid: request.walletIdPaid, nonce: request.nonce, amount: request.amount, coins }
+  return { coins }
 }
 
 export interface VerifyResult {
@@ -89,64 +88,70 @@ export interface VerifyResult {
   coins?: ReceivedCoin[]
 }
 
+const COIN_ID_BYTES = 32
+const MAX_COIN_ID = 1n << BigInt(COIN_ID_BYTES * 8)
+
+function bigIntToBytes(value: bigint, length: number): Uint8Array {
+  const out = new Uint8Array(length)
+  for (let i = length - 1; i >= 0; i--) {
+    out[i] = Number(value & 0xffn)
+    value >>= 8n
+  }
+  return out
+}
+
+// Prüfung beim Empfänger. Vertraut vom Zahler NUR den offengelegten Hälften und der Signatur –
+// mitgeschickte Bits, Wallet-ID, Nonce oder Betrag werden ignoriert, alles kommt aus der eigenen Anfrage.
+// Reihenfolge pro Münze:
+//   1. coin_id aus der Signatur: m = signature^e mod N (muss in 32 Byte passen)
+//   2. Challenge selbst berechnen: SHA-256(m ‖ eigene empfaenger_id ‖ eigene nonce)
+//   3. pro Paar die geöffnete Hälfte hashen und mit dem mitgeschickten Hash zu X_j/Y_j zusammensetzen
+//   4. coin_id = SHA-256(X_0 ‖ Y_0 ‖ … ‖ X_11 ‖ Y_11) – muss m sein (= Signatur passt zu genau diesen Hälften)
+//   5. coin_id darf lokal noch nicht gesehen worden sein
 export async function verifyPaymentProof(
   proof: PaymentProof,
   request: PaymentRequest,
   bankPublicKeyHex: string,
   bankExponent: number,
+  seenCoinIds: ReadonlySet<string> = new Set(),
 ): Promise<VerifyResult> {
-  if (
-    proof.walletIdPaid !== request.walletIdPaid ||
-    proof.nonce !== request.nonce ||
-    proof.amount !== request.amount
-  ) {
-    return { valid: false, amount: 0, reason: 'Wallet-ID/Nonce/Betrag stimmen nicht mit der Anfrage überein.' }
-  }
-
   const modulus = BigInt(`0x${bankPublicKeyHex}`)
   const exponent = BigInt(bankExponent)
+  const reject = (reason: string): VerifyResult => ({ valid: false, amount: 0, reason })
 
-  let total = 0
   const received: ReceivedCoin[] = []
+  const inThisPayment = new Set<string>()
   for (const coinReveal of proof.coins) {
-    if (coinReveal.pairs.length !== NUM_PAIRS) {
-      return { valid: false, amount: 0, reason: 'Ungültige Anzahl offengelegter Paare.' }
-    }
+    if (coinReveal.pairs.length !== NUM_PAIRS) return reject('Ungültige Anzahl offengelegter Paare.')
+
+    const message = modPow(BigInt(`0x${coinReveal.signature}`), exponent, modulus)
+    if (message >= MAX_COIN_ID) return reject('Ungültige Münzsignatur.')
+    const signedCoinId = bigIntToBytes(message, COIN_ID_BYTES)
+
+    const bits = await challengeBits(signedCoinId, request.walletIdPaid, request.nonce)
 
     const hashes: Uint8Array[] = []
-    for (const pair of coinReveal.pairs) {
-      const recomputed = await shortHash(concatBytes([hexToBytes(pair.revealed), hexToBytes(pair.salt)]))
+    for (let j = 0; j < NUM_PAIRS; j++) {
+      const pair = coinReveal.pairs[j]
+      const opened = await shortHash(concatBytes([hexToBytes(pair.revealed), hexToBytes(pair.salt)]))
       const other = hexToBytes(pair.otherHash)
-      if (pair.bit === 0) {
-        hashes.push(recomputed, other)
-      } else {
-        hashes.push(other, recomputed)
-      }
+      if (bits[j] === 0) hashes.push(opened, other) // X_j geöffnet, Y_j mitgeschickt
+      else hashes.push(other, opened) // Y_j geöffnet, X_j mitgeschickt
     }
-
     const coinIdBytes = await sha256(concatBytes(hashes))
-    const coinId = bytesToBigInt(coinIdBytes)
-
-    const expectedBits = await challengeBits(coinIdBytes, request.walletIdPaid, request.nonce)
-    const bitsMatch = coinReveal.pairs.every((pair, j) => pair.bit === expectedBits[j])
-    if (!bitsMatch) {
-      return {
-        valid: false,
-        amount: 0,
-        reason: 'Offengelegte Seite passt nicht zur Challenge – möglicher Betrugsversuch.',
-      }
+    if (bytesToBigInt(coinIdBytes) !== message) {
+      return reject('Offengelegte Hälften passen nicht zur Challenge oder zur Signatur – Zahlung abgelehnt.')
     }
 
-    const signature = BigInt(`0x${coinReveal.signature}`)
-    const check = modPow(signature, exponent, modulus)
-    if (check !== coinId) {
-      return { valid: false, amount: 0, reason: 'Ungültige Münzsignatur.' }
+    const coinId = bytesToHex(coinIdBytes)
+    if (seenCoinIds.has(coinId) || inThisPayment.has(coinId)) {
+      return reject('Diese Münze wurde hier schon einmal angenommen – mögliche Doppelausgabe.')
     }
-
-    total += coinReveal.value
-    received.push({ coinId: bytesToHex(coinIdBytes), value: coinReveal.value, signature: coinReveal.signature })
+    inThisPayment.add(coinId)
+    received.push({ coinId, value: 1, signature: coinReveal.signature }) // nur 1-€-Münzen
   }
 
+  const total = received.length
   if (total !== request.amount) {
     return {
       valid: false,
@@ -156,101 +161,4 @@ export async function verifyPaymentProof(
   }
 
   return { valid: true, amount: total, coins: received }
-}
-
-// ---------- Kompaktes QR-Format für Zahlungsbeweise ----------
-// Als JSON wäre der Beweis für 2 Münzen ~3.700 Zeichen lang und passt in keinen QR-Code.
-// Binär sind es ~1.150 Byte, als Base64url mit Präfix "FM1." rund 1.540 Zeichen.
-// Aufbau (alle Werte big-endian):
-//   Kopf:  Version (1) | walletIdPaid (8) | nonce (16) | Betrag (1) | Anzahl Münzen (1)
-//   Münze: Wert (1) | Signatur (128) | Challenge-Bits (2, Bit j = Paar j, höchstes Bit zuerst)
-//          | 12 × [ revealed (12) | salt (12) | otherHash (12) ]
-const PROOF_PREFIX = 'FM1.'
-const PROOF_VERSION = 1
-const WALLET_ID_BYTES = 8
-const NONCE_BYTES = 16
-const SIGNATURE_BYTES = 128
-const VALUE_BYTES = 12
-
-function fixedHex(hex: string, bytes: number, what: string): Uint8Array {
-  const out = hexToBytes(hex.padStart(bytes * 2, '0'))
-  if (out.length !== bytes) throw new Error(`${what} hat nicht ${bytes} Byte`)
-  return out
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = ''
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-function fromBase64Url(text: string): Uint8Array {
-  const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/'))
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0))
-}
-
-export function encodeProof(proof: PaymentProof): string {
-  if (proof.amount > 255 || proof.coins.length > 255) throw new Error('Betrag oder Münzanzahl zu groß')
-  const chunks: Uint8Array[] = [
-    new Uint8Array([PROOF_VERSION]),
-    fixedHex(proof.walletIdPaid, WALLET_ID_BYTES, 'walletIdPaid'),
-    fixedHex(proof.nonce, NONCE_BYTES, 'nonce'),
-    new Uint8Array([proof.amount, proof.coins.length]),
-  ]
-  for (const coin of proof.coins) {
-    if (coin.pairs.length !== NUM_PAIRS) throw new Error('Münze hat nicht 12 Paare')
-    const bits = coin.pairs.reduce((acc, pair, j) => acc | (pair.bit << (15 - j)), 0)
-    chunks.push(
-      new Uint8Array([coin.value]),
-      fixedHex(coin.signature, SIGNATURE_BYTES, 'Signatur'),
-      new Uint8Array([bits >> 8, bits & 0xff]),
-    )
-    for (const pair of coin.pairs) {
-      chunks.push(
-        fixedHex(pair.revealed, VALUE_BYTES, 'revealed'),
-        fixedHex(pair.salt, VALUE_BYTES, 'salt'),
-        fixedHex(pair.otherHash, VALUE_BYTES, 'otherHash'),
-      )
-    }
-  }
-  return PROOF_PREFIX + toBase64Url(concatBytes(chunks))
-}
-
-// Liest das kompakte Format; ältere JSON-Beweise werden weiterhin akzeptiert
-export function decodeProof(text: string): PaymentProof {
-  if (!text.startsWith(PROOF_PREFIX)) return JSON.parse(text) as PaymentProof
-
-  const bytes = fromBase64Url(text.slice(PROOF_PREFIX.length))
-  let offset = 0
-  const take = (length: number) => {
-    if (offset + length > bytes.length) throw new Error('Zahlungsbeweis ist unvollständig')
-    const part = bytes.slice(offset, offset + length)
-    offset += length
-    return part
-  }
-
-  if (take(1)[0] !== PROOF_VERSION) throw new Error('Unbekannte Version des Zahlungsbeweises')
-  const walletIdPaid = bytesToHex(take(WALLET_ID_BYTES))
-  const nonce = bytesToHex(take(NONCE_BYTES))
-  const [amount, coinCount] = take(2)
-
-  const coins: CoinReveal[] = []
-  for (let c = 0; c < coinCount; c++) {
-    const value = take(1)[0]
-    const signature = bytesToHex(take(SIGNATURE_BYTES))
-    const [high, low] = take(2)
-    const bits = (high << 8) | low
-    const pairs: PairReveal[] = []
-    for (let j = 0; j < NUM_PAIRS; j++) {
-      pairs.push({
-        bit: ((bits >> (15 - j)) & 1) as 0 | 1,
-        revealed: bytesToHex(take(VALUE_BYTES)),
-        salt: bytesToHex(take(VALUE_BYTES)),
-        otherHash: bytesToHex(take(VALUE_BYTES)),
-      })
-    }
-    coins.push({ value, signature, pairs })
-  }
-  if (offset !== bytes.length) throw new Error('Zahlungsbeweis hat überzählige Daten')
-  return { walletIdPaid, nonce, amount, coins }
 }
