@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Account } from '../../models/Account'
 import { syncAccount } from '../../services/account'
 import {
@@ -46,6 +46,21 @@ const barcode = computed(() => {
   return { bars, width: Math.max(1, x - 1) }
 })
 
+// Netzstatus des Handys: im Flugmodus sind Konto, Aufladen und Sync nicht erreichbar,
+// Senden und Empfangen im Wallet gehen trotzdem. Ob die Bank selbst antwortet, prüfen wir nicht.
+const online = ref(navigator.onLine)
+function updateOnline() {
+  online.value = navigator.onLine
+}
+onMounted(() => {
+  window.addEventListener('online', updateOnline)
+  window.addEventListener('offline', updateOnline)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('online', updateOnline)
+  window.removeEventListener('offline', updateOnline)
+})
+
 const copied = ref(false)
 async function copyWalletId() {
   try {
@@ -86,7 +101,7 @@ async function sync() {
 <template>
   <section class="step menu">
     <!-- ONLINE: das Konto liegt bei der Bank – nur mit Netz erreichbar -->
-    <article class="zone-online" aria-label="Bankkonto (online)">
+    <article class="zone-online" :class="{ 'zone-online--away': !online }" aria-label="Bankkonto (online)">
       <header class="zone-head">
         <span class="zone-tag zone-tag--online">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -94,7 +109,7 @@ async function sync() {
           </svg>
           Online · Bankkonto
         </span>
-        <span class="zone-where">bei der Bank</span>
+        <span class="zone-where">{{ online ? 'bei der Bank' : 'nicht erreichbar' }}</span>
       </header>
       <div class="zone-online__body">
         <button
@@ -118,22 +133,29 @@ async function sync() {
     </article>
 
     <!-- Brücke: nur hier wechselt Geld zwischen Konto und Wallet, dafür braucht es Netz -->
-    <div class="bridge" aria-label="Zwischen Konto und Wallet">
-      <button class="bridge__btn bridge__btn--down" @click="emit('select', 'topup')">
+    <div class="bridge" :class="{ 'bridge--offline': !online }" aria-label="Zwischen Konto und Wallet">
+      <button class="bridge__btn bridge__btn--down" :disabled="!online" @click="emit('select', 'topup')">
         <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M6 13l6 6 6-6" /></svg>
         <span class="bridge__text">
           <span>Aufladen</span>
           <small>Konto → Wallet</small>
         </span>
       </button>
-      <span class="bridge__net" title="Braucht Internet">
+      <span
+        class="bridge__net"
+        role="status"
+        :title="online ? 'Internet verbunden' : 'Kein Internet – Aufladen und Sync gehen erst wieder mit Netz'"
+      >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M2.5 9a14 14 0 0 1 19 0M5.8 12.4a9 9 0 0 1 12.4 0M9.1 15.8a4.2 4.2 0 0 1 5.8 0" />
           <circle cx="12" cy="19" r="1.2" />
+          <path v-if="!online" class="bridge__net-cross" d="M4 4l16 16" />
         </svg>
-        Netz
+        <span class="bridge__net-label">
+          <span class="bridge__net-dot" aria-hidden="true"></span><span class="bridge__net-word">{{ online ? 'Online' : 'Offline' }}</span>
+        </span>
       </span>
-      <button class="bridge__btn bridge__btn--up" :disabled="syncing || pendingBalance === 0" @click="sync">
+      <button class="bridge__btn bridge__btn--up" :disabled="!online || syncing || pendingBalance === 0" @click="sync">
         <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5M6 11l6-6 6 6" /></svg>
         <span class="bridge__text">
           <span>{{ syncing ? 'Sync …' : 'Sync' }}</span>
@@ -142,6 +164,9 @@ async function sync() {
         <span v-if="pendingBalance > 0 && !syncing" class="sync-badge">{{ pendingBalance }} €</span>
       </button>
     </div>
+    <p v-if="!online" class="bridge__offline-hint">
+      Flugmodus: Konto gerade nicht erreichbar. Senden und Empfangen gehen trotzdem.
+    </p>
     <p v-if="syncMessage" class="step__success">{{ syncMessage }}</p>
     <p v-if="syncError" class="step__error">{{ syncError }}</p>
 
@@ -428,6 +453,56 @@ async function sync() {
   stroke-linecap: round;
 }
 
+.bridge__net-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  letter-spacing: 0.06em; /* „Offline“ passt so auch aufs schmale Handy */
+}
+
+.bridge__net-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fm-green);
+  box-shadow: 0 0 6px var(--fm-green);
+}
+
+.bridge__net-cross {
+  stroke: var(--fm-red);
+  stroke-width: 2.4;
+}
+
+.bridge--offline .bridge__net {
+  color: #ff8a73;
+}
+
+.bridge--offline .bridge__net-dot {
+  background: var(--fm-red);
+  box-shadow: none;
+}
+
+/* ohne Netz: Leitung gekappt – nur noch blasse Striche */
+.bridge--offline::before {
+  border-left-color: rgb(243 238 228 / 0.14);
+}
+
+.bridge__offline-hint {
+  margin-bottom: 14px;
+  font: 500 12.5px/1.4 var(--fm-mono);
+  color: rgb(243 238 228 / 0.7);
+  text-align: center;
+}
+
+.zone-online {
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.zone-online--away {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
 .bridge__net circle {
   fill: currentColor;
   stroke: none;
@@ -467,7 +542,7 @@ async function sync() {
   color: var(--fm-ink);
 }
 
-.bridge__btn--down:hover {
+.bridge__btn--down:hover:not(:disabled) {
   background: var(--fm-amber-deep);
 }
 
@@ -519,6 +594,26 @@ async function sync() {
 .step__success,
 .step__error {
   margin-bottom: 14px;
+}
+
+/* Schmales Handy: Status nur als Symbol + Punkt, Knöpfe etwas enger */
+@media (max-width: 400px) {
+  .bridge {
+    gap: 8px;
+  }
+
+  .bridge__btn {
+    gap: 8px;
+    padding: 11px 10px;
+  }
+
+  .bridge__net-word {
+    display: none;
+  }
+
+  .zone-where {
+    font-size: 11px;
+  }
 }
 
 /* ---------- Offline: das Ticket in der Hand ---------- */
