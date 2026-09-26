@@ -2,10 +2,12 @@
 import { nextTick, ref, watch } from 'vue'
 import QRCode from 'qrcode'
 import AmountPad from '../AmountPad.vue'
+import InkStamp from '../InkStamp.vue'
 import QrCameraScanner from '../QrCameraScanner.vue'
 import StepNav from '../StepNav.vue'
 import { decodePayment } from '../../services/codec'
 import { verifyPaymentProof, type PaymentProof } from '../../services/spend'
+import { flashMood } from '../../services/mood'
 import { recordPendingReceive, seenCoinIds } from '../../services/wallet'
 import { bytesToHex, randomBytes } from '../../services/crypto'
 import type { Account } from '../../models/Account'
@@ -106,6 +108,7 @@ async function onDecode(text: string) {
       accepted.value = true
       await nextTick()
       successDialog.value?.showModal()
+      flashMood('warm')
     } else {
       verifyError.value = result.reason ?? 'Zahlung ungültig.'
     }
@@ -161,6 +164,7 @@ function goHome() {
 
     <dialog ref="successDialog" class="modal" @cancel.prevent="goHome">
       <template v-if="request">
+        <InkStamp class="modal-stamp" text="Erhalten" tone="green" :delay="250" />
         <p class="step__eyebrow">Erhalten</p>
         <p class="fm-amount modal__amount">+{{ request.amount }}<small>€</small></p>
         <h3>Zahlung angenommen</h3>
@@ -174,6 +178,13 @@ function goHome() {
 </template>
 
 <style scoped>
+/* Stempel oben rechts auf der Karte, ragt leicht über den Rand */
+.modal-stamp {
+  position: absolute;
+  top: 18px;
+  right: 16px;
+}
+
 .qr-canvas {
   align-self: center;
   margin: 12px 0;

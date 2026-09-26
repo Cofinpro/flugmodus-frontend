@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Account } from '../../models/Account'
+import FlapNumber from '../FlapNumber.vue'
+import { useTilt } from '../../composables/useTilt'
 import { syncAccount } from '../../services/account'
+import { flashMood } from '../../services/mood'
 import {
   clearPendingTransactions,
   offlineBalance,
@@ -11,6 +14,10 @@ import {
 
 const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ select: ['topup' | 'receive' | 'pay']; synced: [number] }>()
+
+// Das Wallet-Ticket kippt leicht mit Maus oder Handy
+const walletTicket = ref<HTMLElement | null>(null)
+useTilt(walletTicket)
 
 const syncing = ref(false)
 const syncError = ref('')
@@ -77,7 +84,9 @@ async function sync() {
     clearPendingTransactions()
     emit('synced', result.balance)
     if (result.credited > 0 || result.rejected.length === 0) syncMessage.value = `${result.credited} € gutgeschrieben.`
+    if (result.credited > 0) flashMood('warm')
     if (result.rejected.length > 0) {
+      if (result.rejected.some((r) => r.reason.includes('Doppelausgabe'))) flashMood('alert', 4000)
       const reasons = [...new Set(result.rejected.map((r) => r.reason))].join(', ')
       const n = result.rejected.length
       syncError.value = `${n} ${n === 1 ? 'Münze' : 'Münzen'} abgelehnt: ${reasons}.`
@@ -101,7 +110,14 @@ async function sync() {
           </svg>
           Online · BesteBank
         </span>
-        <span class="zone-where">{{ online ? 'Konto verknüpft' : 'nicht erreichbar' }}</span>
+        <span class="zone-where">
+          <!-- Hologramm-Siegel der Bank, schillert nur solange das Konto erreichbar ist -->
+          <span v-if="online" class="holo-seal" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m7 12.5 3.2 3.2L17 9" /></svg>
+          </span>
+          <template v-if="online"><span class="zone-where__long">Konto </span>verknüpft</template>
+          <template v-else>nicht erreichbar</template>
+        </span>
       </header>
       <div class="zone-online__body">
         <button
@@ -119,7 +135,7 @@ async function sync() {
         </div>
         <div class="zone-online__balance">
           <p class="zone-label">Kontostand</p>
-          <p class="balance balance--online">{{ account.balance }} <small>€</small></p>
+          <p class="balance balance--online"><FlapNumber :value="account.balance" variant="sky" /></p>
         </div>
       </div>
     </article>
@@ -161,7 +177,7 @@ async function sync() {
     <p v-if="syncError" class="step__error">{{ syncError }}</p>
 
     <!-- OFFLINE: das Wallet ist dieses Handy – Münzen gehen ohne Netz von Hand zu Hand -->
-    <article class="fm-ticket wallet" aria-label="Wallet (offline)">
+    <article ref="walletTicket" class="fm-ticket wallet" aria-label="Wallet (offline)">
       <div class="fm-ticket-main wallet__main">
         <header class="zone-head">
           <span class="zone-tag zone-tag--offline">
@@ -174,7 +190,7 @@ async function sync() {
         </header>
 
         <p class="zone-label">Münzen im Wallet</p>
-        <p class="balance">{{ offlineBalance }} <small>€</small></p>
+        <p class="balance"><FlapNumber :value="offlineBalance" /></p>
         <p v-if="pendingBalance > 0" class="wallet__pending">
           + {{ pendingBalance }} € empfangen, wartet auf Sync
         </p>
@@ -318,9 +334,51 @@ async function sync() {
 }
 
 .zone-where {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font: 500 12px/1.2 var(--fm-mono);
+  white-space: nowrap;
   color: rgb(243 238 228 / 0.6);
   text-align: right;
+}
+
+/* Hologramm: schillernder Farbverlauf, der sich langsam dreht */
+.holo-seal {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgb(155 246 255 / 0.35);
+}
+
+.holo-seal::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: conic-gradient(#ffd6a5, #caffbf, #9bf6ff, #bdb2ff, #ffc6ff, #ffd6a5);
+  animation: holo-spin 5s linear infinite;
+}
+
+.holo-seal svg {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: var(--fm-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@keyframes holo-spin {
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 .zone-where--ink {
@@ -335,18 +393,11 @@ async function sync() {
   color: var(--fm-ink-soft);
 }
 
+/* Saldo als Klappblatt-Anzeige (FlapNumber), die Größe steuert font-size */
 .balance {
-  margin-top: 8px;
-  font-size: 56px;
-  font-weight: 700;
-  line-height: 0.9;
-  letter-spacing: -0.045em;
-}
-
-.balance small {
-  font-size: 0.45em;
-  font-weight: 500;
-  letter-spacing: 0;
+  margin-top: 10px;
+  font-size: 54px;
+  line-height: 1;
 }
 
 /* ---------- Online: gläsern im Himmel, nicht in der Hand ---------- */
@@ -391,8 +442,8 @@ async function sync() {
 }
 
 .balance--online {
-  margin-top: 6px;
-  font-size: 34px;
+  margin-top: 8px;
+  font-size: 30px;
 }
 
 .holder__photo-btn {
@@ -616,17 +667,46 @@ async function sync() {
   .zone-where {
     font-size: 11px;
   }
+
+  .zone-where__long {
+    display: none;
+  }
 }
 
 /* ---------- Offline: das Ticket in der Hand ---------- */
 .wallet {
   width: 100%;
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.25s ease-out;
 }
 
 .wallet__main {
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 20px 20px 24px;
+}
+
+/* Glanz auf dem Papier, wandert mit der Neigung – wie das Hologramm auf einer Bordkarte */
+.wallet__main::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at var(--sheen-x, 30%) var(--sheen-y, 10%), rgb(255 255 255 / 0.6), transparent 45%),
+    linear-gradient(
+      115deg,
+      transparent 35%,
+      rgb(255 214 165 / 0.22) 45%,
+      rgb(155 246 255 / 0.18) 52%,
+      rgb(255 198 255 / 0.18) 58%,
+      transparent 68%
+    );
+  background-size: auto, 220% 220%;
+  background-position: 0 0, var(--sheen-x, 30%) var(--sheen-y, 10%);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
 }
 
 .wallet__main .zone-head {
@@ -861,7 +941,7 @@ async function sync() {
   }
 
   .balance--online {
-    font-size: 30px;
+    font-size: 22px;
   }
 
   .bridge {
@@ -896,7 +976,7 @@ async function sync() {
   }
 
   .balance {
-    font-size: 46px;
+    font-size: 38px;
   }
 
   .menu-grid {
@@ -1030,8 +1110,13 @@ async function sync() {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .photo-dialog[open] .photo-dialog__card {
+  .photo-dialog[open] .photo-dialog__card,
+  .holo-seal::before {
     animation: none;
+  }
+
+  .wallet {
+    transform: none;
   }
 }
 </style>

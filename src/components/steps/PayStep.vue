@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import QRCode from 'qrcode'
+import InkStamp from '../InkStamp.vue'
 import QrCameraScanner from '../QrCameraScanner.vue'
 import { encodePayment } from '../../services/codec'
+import { flashMood } from '../../services/mood'
 import { playMuehuehue } from '../../services/muehuehue'
 import { buildPaymentProof, type PaymentProof } from '../../services/spend'
 import { offlineBalance, removeCoins, selectCoins, spentCoins } from '../../services/wallet'
@@ -114,7 +116,10 @@ async function fraudPay() {
   try {
     const proof = await buildPaymentProof(coinsToReuse, props.account.u, request.value)
     fraud.value = true
-    if (await showProof(proof)) keepScreenOn()
+    if (await showProof(proof)) {
+      keepScreenOn()
+      flashMood('alert')
+    }
   } finally {
     paying.value = false
   }
@@ -212,7 +217,16 @@ function goHome() {
       {{ fraud ? 'Doppelt ausgegeben · ' : '' }}{{ request?.amount }} € an {{ merchant }}
     </p>
     <canvas ref="canvas" class="proof-screen__qr" role="img" aria-label="Zahlungs-QR-Code"></canvas>
-    <p class="proof-screen__hint">Lass den Händler diesen Code scannen.</p>
+    <!-- Stempel neben dem Hinweis, nie über dem QR-Code (der muss scanbar bleiben) -->
+    <div class="proof-screen__foot">
+      <InkStamp
+        class="proof-screen__stamp"
+        :text="fraud ? 'Doppelt' : 'Bezahlt'"
+        :tone="fraud ? 'red' : 'ink'"
+        :delay="400"
+      />
+      <p class="proof-screen__hint">Lass den Händler diesen Code scannen.</p>
+    </div>
     <p v-if="fraud" class="proof-screen__fraud">
       Kryptografisch gültig – der Händler sieht davon nichts. Erst beim Sync-Abgleich der Transcripts
       fliegt es auf, weil sich u aus den zwei unterschiedlich offengelegten Hälften rekonstruieren lässt.
@@ -264,10 +278,24 @@ function goHome() {
 }
 
 .proof-screen__qr {
-  width: min(94vw, calc(100dvh - 190px)) !important;
+  width: min(94vw, calc(100dvh - 220px)) !important; /* Platz für Label, Stempel und Hinweis */
   height: auto !important;
   aspect-ratio: 1 / 1;
   image-rendering: pixelated;
+}
+
+.proof-screen__foot {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  width: min(94vw, 420px);
+  padding-top: 30px; /* Platz für den Stempel über dem Hinweis */
+}
+
+.proof-screen__stamp {
+  position: absolute;
+  top: -6px;
+  right: 4px;
 }
 
 .proof-screen__hint {

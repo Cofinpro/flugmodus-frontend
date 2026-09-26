@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { Account } from './models/Account'
 import { resetWallet } from './services/wallet'
+import { mood } from './services/mood'
 import { isHttpUrl, setBackendUrl } from './services/backend'
 import BackendUrlStep from './components/steps/BackendUrlStep.vue'
 import AccountStep from './components/steps/AccountStep.vue'
@@ -49,6 +50,8 @@ function onTopUp(coinValue: number) {
 </script>
 
 <template>
+  <!-- Himmel-Stimmung: kurz warm bei Geldeingang, rot bei Doppelausgabe -->
+  <div class="sky-mood" :class="mood && `sky-mood--${mood}`" aria-hidden="true"></div>
   <div class="app-shell">
     <header class="app-header">
       <span class="app-header__badge"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg></span>
@@ -72,6 +75,45 @@ function onTopUp(coinValue: number) {
 </template>
 
 <style scoped>
+.sky-mood {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+
+.sky-mood--warm,
+.sky-mood--alert {
+  opacity: 1;
+  transition-duration: 0.35s;
+}
+
+.sky-mood--warm {
+  background:
+    radial-gradient(120% 70% at 50% 110%, rgb(255 181 71 / 0.38), transparent 60%),
+    radial-gradient(80% 50% at 50% -10%, rgb(255 214 165 / 0.14), transparent 70%);
+}
+
+.sky-mood--alert {
+  background:
+    radial-gradient(120% 70% at 50% 110%, rgb(194 56 31 / 0.5), transparent 60%),
+    radial-gradient(80% 50% at 50% -10%, rgb(255 90 60 / 0.18), transparent 70%);
+  animation: sky-alert 0.9s ease-in-out 2;
+}
+
+@keyframes sky-alert {
+  50% {
+    filter: brightness(1.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sky-mood--alert {
+    animation: none;
+  }
+}
+
 .app-shell {
   /* über dem von sky.js erzeugten Himmel liegen */
   position: relative;

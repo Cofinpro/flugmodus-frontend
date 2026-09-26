@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import AmountPad from '../AmountPad.vue'
 import StepNav from '../StepNav.vue'
 import { issueFinish, issueStart } from '../../services/issue'
+import { flashMood } from '../../services/mood'
 import type { Account } from '../../models/Account'
 
 const COIN_VALUE = 1
@@ -56,6 +57,7 @@ async function confirm() {
     }
     amount.value = 0
     successDialog.value?.showModal()
+    flashMood('warm')
   } catch (e) {
     error.value = `${done.value} von ${total.value} Münzen aufgeladen. Fehler: ${(e as Error).message}`
     amount.value = total.value - done.value
