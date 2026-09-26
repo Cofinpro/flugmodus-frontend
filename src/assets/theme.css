@@ -257,4 +257,10 @@ p {
   .btn {
     padding: 14px 20px;
   }
+
+  /* Karten behalten ihre natürliche Größe und stehen senkrecht mittig,
+     der freie Platz verteilt sich oben und unten als Himmel. */
+  .app-main > .step.card {
+    margin-block: auto;
+  }
 }

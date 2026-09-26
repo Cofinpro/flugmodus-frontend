@@ -46,6 +46,13 @@ onBeforeUnmount(() => {
   window.removeEventListener('offline', updateOnline)
 })
 
+// Verlauf gibt es noch nicht – der Knopf sagt kurz „bald“
+const historySoon = ref(false)
+function showHistorySoon() {
+  historySoon.value = true
+  setTimeout(() => (historySoon.value = false), 1400)
+}
+
 const copied = ref(false)
 async function copyWalletId() {
   try {
@@ -197,11 +204,13 @@ async function sync() {
           </button>
         </div>
       </div>
+    </article>
 
-      <!-- Abriss wie beim Boarding Pass: die Wallet-ID als Buchungsnummer -->
+    <!-- Fußleiste auf dem Himmel: Wallet-ID und Verlauf, auf dem Handy am unteren Rand -->
+    <div class="wallet-foot">
       <button
         type="button"
-        class="fm-ticket-stub wallet__stub"
+        class="wallet-id"
         :aria-label="`Wallet-ID ${account.walletId} kopieren`"
         @click="copyWalletId"
       >
@@ -226,7 +235,16 @@ async function sync() {
           <span class="wallet__copy-word">{{ copied ? 'kopiert' : 'kopieren' }}</span>
         </span>
       </button>
-    </article>
+      <!-- Transaktionsverlauf: vorerst nur ein Platzhalter -->
+      <button type="button" class="history-btn" aria-label="Transaktionsverlauf (kommt bald)" @click="showHistorySoon">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" />
+          <path d="M3.5 4v4h4" />
+          <path d="M12 7.5V12l3 2" />
+        </svg>
+        <span>{{ historySoon ? 'bald' : 'Verlauf' }}</span>
+      </button>
+    </div>
 
     <dialog
       v-if="account.photo"
@@ -691,25 +709,76 @@ async function sync() {
   color: var(--fm-ink-soft);
 }
 
-/* Abriss: Wallet-ID wie die Buchungsnummer auf dem Boarding Pass */
-.wallet__stub {
-  flex-direction: row;
+/* Fußleiste auf dem Himmel, getrennt vom Ticket: Wallet-ID + Verlauf */
+.wallet-foot {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.wallet-id {
+  display: flex;
+  flex: 1;
   align-items: center;
-  justify-content: flex-start;
   gap: 10px;
-  width: 100%;
-  padding: 14px 20px 16px;
-  border: 0;
-  background-color: var(--fm-paper); /* sonst gewinnt der dunkle Grundstil für Buttons */
-  color: var(--fm-ink);
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: var(--fm-radius);
+  background: rgb(7 9 17 / 0.55);
+  color: var(--fm-paper);
   font: inherit;
   text-align: left;
   cursor: copy;
+  backdrop-filter: blur(6px);
 }
 
-.wallet__stub:focus-visible {
+.wallet-id:focus-visible {
   outline: 3px solid var(--fm-amber);
-  outline-offset: -6px;
+  outline-offset: 3px;
+}
+
+.history-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  width: 64px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: var(--fm-radius);
+  background: rgb(7 9 17 / 0.55);
+  color: var(--fm-paper);
+  font: 600 9.5px/1 var(--fm-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: border-color 0.2s ease;
+}
+
+.history-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--fm-amber);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.history-btn:hover {
+  border-color: rgb(243 238 228 / 0.4);
+}
+
+.history-btn:focus-visible {
+  outline: 3px solid var(--fm-amber);
+  outline-offset: 3px;
+}
+
+.wallet-id .zone-label {
+  color: rgb(243 238 228 / 0.55);
 }
 
 .wallet__icon {
@@ -719,7 +788,7 @@ async function sync() {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: var(--fm-ink);
+  background: rgb(255 181 71 / 0.14);
   color: var(--fm-amber);
 }
 
@@ -754,12 +823,12 @@ async function sync() {
   align-items: center;
   gap: 5px;
   padding: 6px 9px;
-  border: 1px solid var(--fm-paper-edge);
+  border: 1px solid rgb(243 238 228 / 0.2);
   border-radius: 999px;
   font: 600 10px/1 var(--fm-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--fm-ink-soft);
+  color: rgb(243 238 228 / 0.7);
   transition: color 0.2s ease, border-color 0.2s ease;
 }
 
@@ -773,15 +842,15 @@ async function sync() {
   stroke-linejoin: round;
 }
 
-.wallet__stub:hover .wallet__copy {
-  border-color: var(--fm-ink);
-  color: var(--fm-ink);
+.wallet-id:hover .wallet__copy {
+  border-color: rgb(243 238 228 / 0.5);
+  color: var(--fm-paper);
 }
 
 .wallet__copy--done,
-.wallet__stub:hover .wallet__copy--done {
-  border-color: #13854a;
-  color: #13854a;
+.wallet-id:hover .wallet__copy--done {
+  border-color: #5fdca0;
+  color: #5fdca0;
 }
 
 /* Handy: alles auf einen Bildschirm – engere Abstände, Kacheln quer (Symbol neben dem Text) */
@@ -803,6 +872,19 @@ async function sync() {
   .step__success,
   .step__error {
     margin-bottom: 10px;
+  }
+
+  /* Screen bis unten füllen: Karten behalten ihre Größe, die Wallet-ID haftet am unteren Rand */
+  .menu {
+    flex: 1;
+  }
+
+  .wallet-foot {
+    margin-top: auto;
+  }
+
+  .wallet {
+    margin-bottom: 12px; /* Mindestabstand zur Wallet-ID, falls der Bildschirm knapp ist */
   }
 
   .wallet__main {
@@ -850,9 +932,6 @@ async function sync() {
     font-size: 11.5px;
   }
 
-  .wallet__stub {
-    padding: 12px 16px 14px;
-  }
 
   .wallet__id {
     font-size: 12.5px;
