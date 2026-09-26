@@ -89,7 +89,7 @@ async function confirm() {
     <dialog ref="dialog" class="topup-dialog" @cancel.prevent="cancel">
       <p class="step__eyebrow">Bestätigen</p>
       <h3>Möchtest du {{ amount }} € aufladen?</h3>
-      <p class="step__hint">{{ amount }} {{ amount === 1 ? 'Münze' : 'Münzen' }} à 1 € werden bei der Bank abgehoben.</p>
+      <p class="step__hint">{{ amount }} {{ amount === 1 ? 'Münze' : 'Münzen' }} à 1 € werden bei der BesteBank abgehoben.</p>
       <div class="topup-dialog__actions">
         <button class="btn topup-dialog__yes" @click="confirm">Ja</button>
         <button class="btn topup-dialog__cancel" @click="cancel">Abbrechen</button>

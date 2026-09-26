@@ -10,7 +10,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Flugmodus - Frontend',
+        name: 'Flugmodus Wallet',
         short_name: 'Flugmodus',
         theme_color: '#070911',
         background_color: '#070911',

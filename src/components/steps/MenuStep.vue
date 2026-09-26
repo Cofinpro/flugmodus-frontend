@@ -31,21 +31,6 @@ function onPhotoDialogClick(event: MouseEvent) {
 // Wallet-ID in Vierergruppen, gut vorlesbar: a1b2 c3d4 e5f6 a7b8
 const walletIdGroups = computed(() => props.account.walletId.match(/.{1,4}/g) ?? [])
 
-// Strichcode aus den Bits der Wallet-ID: 1 = breiter Strich, 0 = schmaler, dazwischen immer eine Lücke
-const barcode = computed(() => {
-  const bars: { x: number; w: number }[] = []
-  let x = 0
-  for (const digit of props.account.walletId) {
-    const nibble = parseInt(digit, 16)
-    for (let bit = 3; bit >= 0; bit--) {
-      const w = (nibble >> bit) & 1 ? 2 : 1
-      bars.push({ x, w })
-      x += w + 1
-    }
-  }
-  return { bars, width: Math.max(1, x - 1) }
-})
-
 // Netzstatus des Handys: im Flugmodus sind Konto, Aufladen und Sync nicht erreichbar,
 // Senden und Empfangen im Wallet gehen trotzdem. Ob die Bank selbst antwortet, prüfen wir nicht.
 const online = ref(navigator.onLine)
@@ -100,16 +85,16 @@ async function sync() {
 
 <template>
   <section class="step menu">
-    <!-- ONLINE: das Konto liegt bei der Bank – nur mit Netz erreichbar -->
-    <article class="zone-online" :class="{ 'zone-online--away': !online }" aria-label="Bankkonto (online)">
+    <!-- ONLINE: das Konto liegt bei der (Beispiel-)Bank BesteBank – nur mit Netz erreichbar -->
+    <article class="zone-online" :class="{ 'zone-online--away': !online }" aria-label="Konto bei der BesteBank (online)">
       <header class="zone-head">
         <span class="zone-tag zone-tag--online">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.6 9.1 4.5 4.5 0 0 0 7 18Z" />
           </svg>
-          Online · Bankkonto
+          Online · BesteBank
         </span>
-        <span class="zone-where">{{ online ? 'bei der Bank' : 'nicht erreichbar' }}</span>
+        <span class="zone-where">{{ online ? 'Konto verknüpft' : 'nicht erreichbar' }}</span>
       </header>
       <div class="zone-online__body">
         <button
@@ -135,11 +120,10 @@ async function sync() {
     <!-- Brücke: nur hier wechselt Geld zwischen Konto und Wallet, dafür braucht es Netz -->
     <div class="bridge" :class="{ 'bridge--offline': !online }" aria-label="Zwischen Konto und Wallet">
       <button class="bridge__btn bridge__btn--down" :disabled="!online" @click="emit('select', 'topup')">
-        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M6 13l6 6 6-6" /></svg>
-        <span class="bridge__text">
-          <span>Aufladen</span>
-          <small>Konto → Wallet</small>
+        <span class="bridge__arrow bridge__arrow--down" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M6.5 13.5 12 19l5.5-5.5" /></svg>
         </span>
+        <span>Aufladen</span>
       </button>
       <span
         class="bridge__net"
@@ -156,16 +140,15 @@ async function sync() {
         </span>
       </span>
       <button class="bridge__btn bridge__btn--up" :disabled="!online || syncing || pendingBalance === 0" @click="sync">
-        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5M6 11l6-6 6 6" /></svg>
-        <span class="bridge__text">
-          <span>{{ syncing ? 'Sync …' : 'Sync' }}</span>
-          <small>Wallet → Konto</small>
+        <span class="bridge__arrow bridge__arrow--up" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" /></svg>
         </span>
+        <span>{{ syncing ? 'Sync …' : 'Sync' }}</span>
         <span v-if="pendingBalance > 0 && !syncing" class="sync-badge">{{ pendingBalance }} €</span>
       </button>
     </div>
     <p v-if="!online" class="bridge__offline-hint">
-      Flugmodus: Konto gerade nicht erreichbar. Senden und Empfangen gehen trotzdem.
+      Konto nicht erreichbar – offline bezahlen möglich.
     </p>
     <p v-if="syncMessage" class="step__success">{{ syncMessage }}</p>
     <p v-if="syncError" class="step__error">{{ syncError }}</p>
@@ -215,23 +198,33 @@ async function sync() {
         </div>
       </div>
 
-      <!-- Abriss wie beim Boarding Pass: Wallet-ID mit Strichcode aus ihren Bits -->
+      <!-- Abriss wie beim Boarding Pass: die Wallet-ID als Buchungsnummer -->
       <button
         type="button"
         class="fm-ticket-stub wallet__stub"
         :aria-label="`Wallet-ID ${account.walletId} kopieren`"
         @click="copyWalletId"
       >
-        <span class="wallet__id-row">
+        <span class="wallet__icon" aria-hidden="true">
+          <!-- Geldbörse mit Lasche -->
+          <svg viewBox="0 0 24 24">
+            <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v2.5" />
+            <path d="M4 7.5v10A1.5 1.5 0 0 0 5.5 19h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 18.5 8H4.5" />
+            <path d="M20 11.5h-3.5a1.75 1.75 0 0 0 0 3.5H20" />
+          </svg>
+        </span>
+        <span class="wallet__id-text">
           <span class="zone-label">Wallet-ID</span>
-          <span class="wallet__copy">{{ copied ? 'kopiert ✓' : 'tippen zum Kopieren' }}</span>
+          <span class="wallet__id">{{ walletIdGroups.join(' ') }}</span>
         </span>
-        <span class="wallet__id">
-          <span v-for="(group, i) in walletIdGroups" :key="i">{{ group }}</span>
+        <span class="wallet__copy" :class="{ 'wallet__copy--done': copied }">
+          <svg v-if="!copied" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="8.5" y="8.5" width="11" height="11" rx="2" />
+            <path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+          <span class="wallet__copy-word">{{ copied ? 'kopiert' : 'kopieren' }}</span>
         </span>
-        <svg class="wallet__barcode" :viewBox="`0 0 ${barcode.width} 10`" preserveAspectRatio="none" aria-hidden="true">
-          <rect v-for="(bar, i) in barcode.bars" :key="i" :x="bar.x" y="0" :width="bar.w" height="10" />
-        </svg>
       </button>
     </article>
 
@@ -508,18 +501,29 @@ async function sync() {
   stroke: none;
 }
 
+/* Aufladen und Sync sind gleichrangig: gleicher Knopf, gleicher Pfeil-Kreis – die Richtung zeigt allein der Pfeil */
 .bridge__btn {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 8px;
   min-width: 0;
-  padding: 11px 14px;
-  border-radius: var(--fm-radius);
-  font: 700 15px/1.1 var(--fm-sans);
+  min-height: 50px; /* gleiche Höhe wie vorher mit Kreis */
+  padding: 0 16px;
+  border: 1px solid rgb(243 238 228 / 0.2);
+  border-radius: 999px;
+  background: rgb(7 9 17 / 0.55);
+  color: var(--fm-paper);
+  font: 700 15px/1 var(--fm-sans);
   text-align: left;
   cursor: pointer;
-  transition: transform 0.12s ease, background 0.2s ease, color 0.2s ease;
+  transition: transform 0.12s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.bridge__btn:hover:not(:disabled) {
+  border-color: rgb(243 238 228 / 0.45);
+  background: rgb(7 9 17 / 0.75);
 }
 
 .bridge__btn:active:not(:disabled) {
@@ -536,59 +540,40 @@ async function sync() {
   cursor: not-allowed;
 }
 
-.bridge__btn--down {
-  border: 0;
-  background: var(--fm-amber);
-  color: var(--fm-ink);
-}
-
-.bridge__btn--down:hover:not(:disabled) {
-  background: var(--fm-amber-deep);
-}
-
-.bridge__btn--up {
-  justify-self: stretch;
-  border: var(--fm-line) solid rgb(243 238 228 / 0.55);
-  background: rgb(7 9 17 / 0.6);
-  color: var(--fm-paper);
-}
-
-.bridge__btn--up:hover:not(:disabled) {
-  border-color: var(--fm-amber);
-  color: var(--fm-amber);
-}
-
-.bridge__text {
+/* Nur der Pfeil, ohne Kreis – in Amber, für beide Richtungen gleich */
+.bridge__arrow {
   display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.bridge__text small {
-  font: 500 10.5px/1 var(--fm-mono);
-  letter-spacing: 0.02em;
-  opacity: 0.75;
-  white-space: nowrap;
-}
-
-.sync-badge {
-  margin-left: auto;
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: var(--fm-amber);
-  color: var(--fm-ink);
-  font: 700 12px/1 var(--fm-sans);
-}
-
-.action-icon {
   flex: none;
-  width: 18px;
-  height: 18px;
+  place-items: center;
+  color: var(--fm-amber);
+  transition: transform 0.2s var(--fm-ease-arrive);
+}
+
+.bridge__arrow svg {
+  width: 17px;
+  height: 17px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.bridge__btn--down:hover:not(:disabled) .bridge__arrow {
+  transform: translateY(2px);
+}
+
+.bridge__btn--up:hover:not(:disabled) .bridge__arrow {
+  transform: translateY(-2px);
+}
+
+.sync-badge {
+  margin-left: 2px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--fm-amber);
+  color: var(--fm-ink);
+  font: 700 12px/1 var(--fm-sans);
 }
 
 .step__success,
@@ -603,8 +588,7 @@ async function sync() {
   }
 
   .bridge__btn {
-    gap: 8px;
-    padding: 11px 10px;
+    padding: 0 12px;
   }
 
   .bridge__net-word {
@@ -709,10 +693,12 @@ async function sync() {
 
 /* Abriss: Wallet-ID wie die Buchungsnummer auf dem Boarding Pass */
 .wallet__stub {
-  align-items: stretch;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
   gap: 10px;
   width: 100%;
-  padding: 20px 20px 22px;
+  padding: 14px 20px 16px;
   border: 0;
   background-color: var(--fm-paper); /* sonst gewinnt der dunkle Grundstil für Buttons */
   color: var(--fm-ink);
@@ -726,31 +712,161 @@ async function sync() {
   outline-offset: -6px;
 }
 
-.wallet__id-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+.wallet__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--fm-ink);
+  color: var(--fm-amber);
 }
 
-.wallet__copy {
-  font: 500 10px/1 var(--fm-mono);
-  color: var(--fm-ink-soft);
+.wallet__icon svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wallet__id-text {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
 }
 
 .wallet__id {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 10px;
-  font: 600 20px/1 var(--fm-mono);
-  letter-spacing: 0.06em;
+  overflow: hidden;
+  font: 600 13px/1 var(--fm-mono);
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.wallet__barcode {
-  display: block;
-  width: 100%;
-  height: 34px;
-  fill: var(--fm-ink);
+.wallet__copy {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border: 1px solid var(--fm-paper-edge);
+  border-radius: 999px;
+  font: 600 10px/1 var(--fm-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fm-ink-soft);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.wallet__copy svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wallet__stub:hover .wallet__copy {
+  border-color: var(--fm-ink);
+  color: var(--fm-ink);
+}
+
+.wallet__copy--done,
+.wallet__stub:hover .wallet__copy--done {
+  border-color: #13854a;
+  color: #13854a;
+}
+
+/* Handy: alles auf einen Bildschirm – engere Abstände, Kacheln quer (Symbol neben dem Text) */
+@media (hover: none) and (pointer: coarse) {
+  .zone-online {
+    gap: 12px;
+    padding: 14px 16px 16px;
+  }
+
+  .balance--online {
+    font-size: 30px;
+  }
+
+  .bridge {
+    padding: 10px 0;
+  }
+
+  .bridge__offline-hint,
+  .step__success,
+  .step__error {
+    margin-bottom: 10px;
+  }
+
+  .wallet__main {
+    padding: 16px 16px 18px;
+  }
+
+  .wallet__main .zone-head {
+    margin-bottom: 14px;
+  }
+
+  .balance {
+    font-size: 46px;
+  }
+
+  .menu-grid {
+    margin-top: 16px;
+  }
+
+  .menu-tile {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: 2px;
+    align-items: center;
+    padding: 10px 10px 10px 8px;
+  }
+
+  .menu-tile__icon {
+    grid-row: span 2;
+    width: 34px;
+    height: 34px;
+    margin: 0;
+  }
+
+  .menu-tile__icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .menu-tile__label {
+    font-size: 15px;
+  }
+
+  .menu-tile__hint {
+    font-size: 11.5px;
+  }
+
+  .wallet__stub {
+    padding: 12px 16px 14px;
+  }
+
+  .wallet__id {
+    font-size: 12.5px;
+    letter-spacing: 0;
+  }
+
+  /* nur das Symbol, damit die ganze ID in die Zeile passt */
+  .wallet__copy {
+    padding: 8px;
+  }
+
+  .wallet__copy-word {
+    display: none;
+  }
 }
 
 /* Profilbild groß */
