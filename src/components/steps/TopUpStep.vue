@@ -36,34 +36,55 @@ function backToWallet() {
   emit('back')
 }
 
-// Pro Münze: Kandidaten erzeugen (issueStart), öffnen und signieren lassen (issueFinish)
+// So viele Münzen laufen gleichzeitig: spart Wartezeit auf Antworten, ohne Bank und Handy zu überfahren
+const PARALLEL_COINS = 5
+
+// Pro Münze: Kandidaten erzeugen (issueStart), öffnen und signieren lassen (issueFinish).
+// Mehrere Münzen parallel; nach dem ersten Fehler werden keine neuen mehr gestartet,
+// laufende dürfen noch fertig werden (die sind bei der Bank ja schon unterwegs).
+async function issueOneCoin() {
+  const session = await issueStart(
+    props.account.accountId,
+    props.account.u,
+    props.account.bankPublicKey,
+    props.account.bankExponent,
+  )
+  await issueFinish(session)
+  emit('topup', COIN_VALUE)
+  done.value++
+}
+
 async function confirm() {
   dialog.value?.close()
   running.value = true
   done.value = 0
   total.value = amount.value
   error.value = ''
-  try {
-    for (let i = 0; i < total.value; i++) {
-      const session = await issueStart(
-        props.account.accountId,
-        props.account.u,
-        props.account.bankPublicKey,
-        props.account.bankExponent,
-      )
-      await issueFinish(session)
-      emit('topup', COIN_VALUE)
-      done.value++
+
+  let started = 0
+  let failure: Error | null = null
+  async function worker() {
+    while (!failure && started < total.value) {
+      started++
+      try {
+        await issueOneCoin()
+      } catch (e) {
+        failure ??= e as Error
+      }
     }
-    amount.value = 0
-    successDialog.value?.showModal()
-    flashMood('warm')
-  } catch (e) {
-    error.value = `${done.value} von ${total.value} Münzen aufgeladen. Fehler: ${(e as Error).message}`
-    amount.value = total.value - done.value
-  } finally {
-    running.value = false
   }
+
+  await Promise.all(Array.from({ length: Math.min(PARALLEL_COINS, total.value) }, worker))
+  running.value = false
+
+  if (failure) {
+    error.value = `${done.value} von ${total.value} Münzen aufgeladen. Fehler: ${(failure as Error).message}`
+    amount.value = total.value - done.value
+    return
+  }
+  amount.value = 0
+  successDialog.value?.showModal()
+  flashMood('warm')
 }
 </script>
 
@@ -80,7 +101,7 @@ async function confirm() {
     />
 
     <button class="btn btn--primary" :disabled="amount === 0 || running" @click="askConfirm">
-      {{ running ? `Münze ${Math.min(done + 1, total)} von ${total} …` : 'Aufladen' }}
+      {{ running ? `${done} von ${total} Münzen …` : 'Aufladen' }}
     </button>
 
     <div v-if="running" class="topup-progress" role="progressbar" :aria-valuenow="done" :aria-valuemax="total">
