@@ -104,7 +104,7 @@ async function fraudPay() {
   if (!request.value || paying.value) return
   playMuehuehue()
 
-  const coinsToReuse = selectCoins(request.value.amount, spentCoins.value)
+  const coinsToReuse = selectCoins(request.value.amount, [...spentCoins.value].reverse()) // neueste zuerst: die Münze der letzten Zahlung
   if (!coinsToReuse) {
     parseError.value = 'Keine passenden bereits ausgegebenen Münzen für diesen Betrag vorhanden.'
     cancelPayment()
